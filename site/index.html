@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset=utf-8><title>MOSS-VA-v2 Conditioning Manual</title>
+<style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0;padding:34px;max-width:900px}
+a{color:#58a6ff}h1{margin:0 0 6px}.lead{color:#8b949e;font-size:14px;line-height:1.6}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px 18px;margin:12px 0}
+.card h3{margin:0 0 4px}.mut{color:#8b949e;font-size:13px}</style></head><body>
+<h1>MOSS-TTS-4.55B voice-acting-v2 — Conditioning Manual</h1>
+<p class=lead>A measured usage guide for driving <code>laion/moss-tts-local-transformer-4.55b-voice-acting-v2</code>: for each target, the best prompting strategy <b>with and without</b> a LoRA, the best merge %, the expected <b>reward</b>, and the <b>side-effects / correlations</b> on other EmoNet emotions, VoiceNet dimensions, genuineness, vocal-burst blend and speech quality. Two mirrored variants: this HTML (with example audio) and a <a href="../md/emotions/index.md">Markdown version</a> for use as an agent skill.</p>
+<div class=card><h3><a href="emotions/index.html">🎭 Emotions (40)</a></h3><div class=mut>Best prompt + LoRA merge % per emotion, expected reward, top-3 ± correlations, tips. — <b>ready</b></div></div>
+<div class=card><h3>🔊 Edge cases</h3><div class=mut>Screaming, crying, laughter, groaning, shivering — maximizing reward with/without LoRA. — <i>planned</i></div></div>
+<div class=card><h3>🎚️ VoiceNet dimensions</h3><div class=mut>57 dims × high/low: prompting + merge %, side-effects on emotions & quality. — <i>planned</i></div></div>
+<div class=card><h3>🗣️ Character voices</h3><div class=mut>Per-voice LoRA merge sweep 25/50/75/100%, correlations. — <i>planned</i></div></div>
+</body></html>
