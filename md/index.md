@@ -5,7 +5,7 @@ A measured usage guide for `laion/moss-tts-local-transformer-4.55b-voice-acting-
 ## Manuals
 - [Emotions (40)](emotions/index.md) — **ready**
 - [Edge cases](https://laion-ai.github.io/moss-emotion-edgecase-evolution/) — **ready** (screaming, crying, laughter, groaning, shivering — reward-max prompt + λ, with/without LoRA)
-- VoiceNet dimensions (57 × high/low, 25/50/75/100/125% sweep + side-effects) — *in progress* → will live at `moss-voicenet-manual`
+- [VoiceNet dimensions](https://laion-ai.github.io/moss-voicenet-manual/) (57 × high/low, 25/50/75/100/125% sweep + side-effects, audio + prompting tips) — **ready**
 - Character voices (per-voice merge sweep + correlations) — *planned*
 
 ## Related experiments & grids (all live)

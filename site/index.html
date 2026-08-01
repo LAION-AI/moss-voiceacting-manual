@@ -13,7 +13,7 @@ a{color:#58a6ff}h1{margin:0 0 6px}h2{margin:28px 0 4px;font-size:17px}.lead{colo
 <h2>Manuals</h2>
 <div class=card><h3><a href="emotions/index.html">🎭 Emotions (40)</a></h3><div class=mut>Best prompt + LoRA merge % per emotion, expected reward, top-3 ± correlations, tips. — <span class="st ready">ready</span></div></div>
 <div class=card><h3><a href="https://laion-ai.github.io/moss-emotion-edgecase-evolution/">🔊 Edge cases</a></h3><div class=mut>Screaming, crying, laughter, groaning, shivering — reward-maximizing prompt + λ, with and without LoRA (evolutionary search). — <span class="st ready">ready</span></div></div>
-<div class=card><h3>🎚️ VoiceNet dimensions <span class="mut">(57 dims × high/low)</span></h3><div class=mut>Merge-scaling sweep <b>25 / 50 / 75 / 100 / 125 %</b>: dose-response of each dimension plus top-3 ± side-effects on EmoNet emotions, other VoiceNet dims, genuineness, blend &amp; quality. — <span class="st prog">in progress — building now</span> → will live at <code>moss-voicenet-manual</code></div></div>
+<div class=card><h3><a href="https://laion-ai.github.io/moss-voicenet-manual/">🎚️ VoiceNet dimensions (57 × high/low)</a></h3><div class=mut>Merge-scaling sweep <b>25 / 50 / 75 / 100 / 125 %</b>: dose-response of each dimension plus top-3 ± side-effects on EmoNet emotions, other VoiceNet dims, genuineness, blend &amp; quality — with three audio samples per dose and grounded prompting tips. — <span class="st ready">ready</span></div></div>
 <div class=card><h3>🗣️ Character voices</h3><div class=mut>Per-voice LoRA merge sweep + correlations. — <span class="st plan">planned</span> <span class=mut>(voice LoRAs &amp; refinement grids already live, see below)</span></div></div>
 
 <h2>Related experiments &amp; grids <span class="mut" style="font-weight:400;font-size:13px">— all live</span></h2>
@@ -22,7 +22,7 @@ a{color:#58a6ff}h1{margin:0 0 6px}h2{margin:28px 0 4px;font-size:17px}.lead{colo
 <div class=lk><a href="https://laion-ai.github.io/moss-emotion-prompt-lora-study/">Prompt × LoRA study</a><div class=d>Prompt-steering vs. LoRA vs. both, per emotion.</div></div>
 <div class=lk><a href="https://laion-ai.github.io/moss-emotion-edgecase-evolution/">Edge-case evolution</a><div class=d>Screaming / crying / laughter / groaning / shivering.</div></div>
 <div class=lk><a href="https://laion-ai.github.io/moss-voicenet-lora-evolution/">VoiceNet LoRA evolution</a><div class=d>VoiceNet dimension LoRAs at 0 / 50 / 100 % dose.</div></div>
-<div class=lk><a href="https://laion-ai.github.io/moss-voicenet-highlow-grid/">VoiceNet high/low grid</a><div class=d>Per-dimension high vs. low contrast (scaling sweep incoming).</div></div>
+<div class=lk><a href="https://laion-ai.github.io/moss-voicenet-highlow-grid/">VoiceNet scaling grid</a><div class=d>All 57 dims, high &amp; low across the 25–125% dose sweep, 3 samples each.</div></div>
 <div class=lk><a href="https://laion-ai.github.io/emotion-voice-conditions/">Emotion × Voice conditions</a><div class=d>6 voices × 40 emotions × 4 delivery conditions, best-of-32.</div></div>
 <div class=lk><a href="https://projects.laion.ai/character-voice-clusters/">Character-voice clusters</a><div class=d>VoiceNet-embedding clusters with procedural captions.</div></div>
 <div class=lk><a href="https://projects.laion.ai/moss-voiceacting-demos/refine_v2.html">Character LoRA refinement</a><div class=d>SIDON self-distillation refinement grids (120 voices).</div></div>
