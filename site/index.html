@@ -1,12 +1,38 @@
 <!doctype html><html><head><meta charset=utf-8><title>MOSS-VA-v2 Conditioning Manual</title>
 <style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0;padding:34px;max-width:900px}
-a{color:#58a6ff}h1{margin:0 0 6px}.lead{color:#8b949e;font-size:14px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px}h2{margin:28px 0 4px;font-size:17px}.lead{color:#8b949e;font-size:14px;line-height:1.6}
 .card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px 18px;margin:12px 0}
-.card h3{margin:0 0 4px}.mut{color:#8b949e;font-size:13px}</style></head><body>
+.card h3{margin:0 0 4px}.mut{color:#8b949e;font-size:13px}code{background:#0d1117;padding:1px 5px;border-radius:4px;font-size:12px}
+.st{font-weight:700}.ready{color:#5be39a}.prog{color:#f0a35e}.plan{color:#8b949e;font-style:italic}
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:8px}
+.lk{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:11px 14px;font-size:13px}
+.lk a{font-weight:600}.lk .d{color:#8b949e;font-size:12px;margin-top:2px}</style></head><body>
 <h1>MOSS-TTS-4.55B voice-acting-v2 — Conditioning Manual</h1>
 <p class=lead>A measured usage guide for driving <code>laion/moss-tts-local-transformer-4.55b-voice-acting-v2</code>: for each target, the best prompting strategy <b>with and without</b> a LoRA, the best merge %, the expected <b>reward</b>, and the <b>side-effects / correlations</b> on other EmoNet emotions, VoiceNet dimensions, genuineness, vocal-burst blend and speech quality. Two mirrored variants: this HTML (with example audio) and a <a href="../md/emotions/index.md">Markdown version</a> for use as an agent skill.</p>
-<div class=card><h3><a href="emotions/index.html">🎭 Emotions (40)</a></h3><div class=mut>Best prompt + LoRA merge % per emotion, expected reward, top-3 ± correlations, tips. — <b>ready</b></div></div>
-<div class=card><h3>🔊 Edge cases</h3><div class=mut>Screaming, crying, laughter, groaning, shivering — maximizing reward with/without LoRA. — <i>planned</i></div></div>
-<div class=card><h3>🎚️ VoiceNet dimensions</h3><div class=mut>57 dims × high/low: prompting + merge %, side-effects on emotions & quality. — <i>planned</i></div></div>
-<div class=card><h3>🗣️ Character voices</h3><div class=mut>Per-voice LoRA merge sweep 25/50/75/100%, correlations. — <i>planned</i></div></div>
+
+<h2>Manuals</h2>
+<div class=card><h3><a href="emotions/index.html">🎭 Emotions (40)</a></h3><div class=mut>Best prompt + LoRA merge % per emotion, expected reward, top-3 ± correlations, tips. — <span class="st ready">ready</span></div></div>
+<div class=card><h3><a href="https://laion-ai.github.io/moss-emotion-edgecase-evolution/">🔊 Edge cases</a></h3><div class=mut>Screaming, crying, laughter, groaning, shivering — reward-maximizing prompt + λ, with and without LoRA (evolutionary search). — <span class="st ready">ready</span></div></div>
+<div class=card><h3>🎚️ VoiceNet dimensions <span class="mut">(57 dims × high/low)</span></h3><div class=mut>Merge-scaling sweep <b>25 / 50 / 75 / 100 / 125 %</b>: dose-response of each dimension plus top-3 ± side-effects on EmoNet emotions, other VoiceNet dims, genuineness, blend &amp; quality. — <span class="st prog">in progress — building now</span> → will live at <code>moss-voicenet-manual</code></div></div>
+<div class=card><h3>🗣️ Character voices</h3><div class=mut>Per-voice LoRA merge sweep + correlations. — <span class="st plan">planned</span> <span class=mut>(voice LoRAs &amp; refinement grids already live, see below)</span></div></div>
+
+<h2>Related experiments &amp; grids <span class="mut" style="font-weight:400;font-size:13px">— all live</span></h2>
+<div class=links>
+<div class=lk><a href="https://laion-ai.github.io/moss-emotion-evolution-all/">40-emotion evolution</a><div class=d>Best λ / prompt per emotion (10 generations, mean-of-8).</div></div>
+<div class=lk><a href="https://laion-ai.github.io/moss-emotion-prompt-lora-study/">Prompt × LoRA study</a><div class=d>Prompt-steering vs. LoRA vs. both, per emotion.</div></div>
+<div class=lk><a href="https://laion-ai.github.io/moss-emotion-edgecase-evolution/">Edge-case evolution</a><div class=d>Screaming / crying / laughter / groaning / shivering.</div></div>
+<div class=lk><a href="https://laion-ai.github.io/moss-voicenet-lora-evolution/">VoiceNet LoRA evolution</a><div class=d>VoiceNet dimension LoRAs at 0 / 50 / 100 % dose.</div></div>
+<div class=lk><a href="https://laion-ai.github.io/moss-voicenet-highlow-grid/">VoiceNet high/low grid</a><div class=d>Per-dimension high vs. low contrast (scaling sweep incoming).</div></div>
+<div class=lk><a href="https://laion-ai.github.io/emotion-voice-conditions/">Emotion × Voice conditions</a><div class=d>6 voices × 40 emotions × 4 delivery conditions, best-of-32.</div></div>
+<div class=lk><a href="https://projects.laion.ai/character-voice-clusters/">Character-voice clusters</a><div class=d>VoiceNet-embedding clusters with procedural captions.</div></div>
+<div class=lk><a href="https://projects.laion.ai/moss-voiceacting-demos/refine_v2.html">Character LoRA refinement</a><div class=d>SIDON self-distillation refinement grids (120 voices).</div></div>
+</div>
+
+<h2>Model &amp; adapter repos</h2>
+<div class=links>
+<div class=lk><a href="https://huggingface.co/laion/moss-tts-local-transformer-4.55b-voice-acting-v2">moss-tts-…-voice-acting-v2</a><div class=d>Base voice-acting model (4.55B).</div></div>
+<div class=lk><a href="https://huggingface.co/TTS-AGI/moss-emotion-loras-v3">moss-emotion-loras-v3</a><div class=d>40 per-emotion LoRAs (≤25% Got-Talent).</div></div>
+<div class=lk><a href="https://huggingface.co/laion/moss-voicenet-dimension-loras">moss-voicenet-dimension-loras</a><div class=d>57 VoiceNet dimension LoRAs (high/low).</div></div>
+<div class=lk><a href="https://huggingface.co/TTS-AGI/moss-character-loras-refined">moss-character-loras-refined</a><div class=d>120 SIDON-refined character LoRAs.</div></div>
+</div>
 </body></html>
