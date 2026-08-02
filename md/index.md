@@ -47,4 +47,4 @@ A measured, audio-backed usage guide for `laion/moss-tts-local-transformer-4.55b
 - **[Base model — moss-tts…voice-acting-v2](https://huggingface.co/laion/moss-tts-local-transformer-4.55b-voice-acting-v2)** — The 4.55B expressive voice-acting TTS model everything conditions on.
 - **[Emotion LoRAs v3 (40)](https://huggingface.co/TTS-AGI/moss-emotion-loras-v3)** — One rank-64 LoRA per emotion (≤25% Got-Talent), the adapters behind the emotion manual.
 - **[VoiceNet dimension LoRAs (114)](https://huggingface.co/laion/moss-voicenet-dimension-loras)** — 57 dimensions × high/low, the adapters behind the VoiceNet manual and the high/low grid.
-- **[Character LoRAs — refined (120)](https://huggingface.co/TTS-AGI/moss-character-loras-refined)** — 120 SIDON-refined from-scratch character voices. (Private TTS-AGI repo — request access.)
+- **[Character LoRAs — refined (120)](https://huggingface.co/TTS-AGI/moss-character-loras-refined-public)** — 120 SIDON-refined from-scratch character voices (public mirror; a genuine-voices public repo also exists).
