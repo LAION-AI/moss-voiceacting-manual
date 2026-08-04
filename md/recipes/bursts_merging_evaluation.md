@@ -235,27 +235,59 @@ positive, so the gate is monotone decreasing in WER for every candidate.
 ## 6. Cross-lingual reference voices — a good source of *new* characters
 
 20 Japanese anime reference clips ([`joujiboi/japanese-anime-speech-v2`](https://huggingface.co/datasets/joujiboi/japanese-anime-speech-v2),
-different speakers) were used as reference audio for **German and English** generation.
+verified different speakers) were used as reference audio for **German and English** generation.
+**1,280 generations, all 20 references scored.**
 
-Mean speaker similarity to the reference is **0.416** (n = 64), against 1.000 for a reference
-against itself and **0.105** for two unrelated speakers — about 35 % of the way from "unrelated"
-to "identical". With **no** emotion LoRA it is **0.62**, which is genuinely recognisable.
-English carries the reference better than German (0.459 vs 0.374), consistently across emotions.
+| | speaker similarity |
+|---|--:|
+| reference against **itself** | 1.000 |
+| **all generations** (n = 1,280) | **0.188** |
+| best of 8 candidates per group | 0.294 |
+| neutral, **no** emotion adapter | 0.226 |
+| `Anger@0.5` | 0.250 |
+| `Sadness@1.0` | 0.202 |
+| `Amusement@1.5` | **0.072** |
+| two **unrelated** speakers | **0.105** |
 
-**So it is not a clone across the language boundary — and that is a feature.** Listening
-confirms what the numbers imply: the generations do **not** sound like the same person, but they
-**keep the register** — the high, bright pitch of the anime source carries over cleanly — and
-they sound good in their own right.
+**The voice does not transfer.** At 0.188 the average generation sits barely above the
+unrelated-speaker floor. English carries slightly more than German (0.217 vs 0.158, n = 640
+each), and `Amusement@1.5` falls to 0.072 — *below* the floor, consistent with §3.
+
+The average hides a wide spread: **ref00 reaches 0.622 and ref14 0.497**, while the median
+reference sits near 0.16. A few source voices land in the model's range and genuinely carry;
+most do not. Selecting best-of-8 on similarity lifts the mean to 0.294 — worth doing, not enough
+to make it a clone.
+
+### Pitch tracks the reference, but gets pulled toward the middle
+
+Median F0, reference vs generation, all 20 pairs:
+
+| | median F0 |
+|---|--:|
+| references | **182 Hz** (110–302) |
+| generations | **157 Hz** |
+| Pearson r(ref, gen) | **0.591** |
+| above 200 Hz | references **7/20**, generations **1/20** |
+
+So pitch is **correlated** with the reference — a high-pitched source does produce a
+higher-pitched generation — but it is **compressed toward the model's own register**. The 250–302 Hz
+anime voices come out at 149–181 Hz; the 110–125 Hz voices come out slightly *higher*. Relative
+ordering survives; the extremes do not.
+
+**Practical reading:** the generations sound bright and high *relative to the model's default*,
+and they sound good, which is why they are useful. But do not expect the source's extreme
+register to reproduce — if you need a genuinely very high voice, prompt for it explicitly rather
+than relying on the reference to carry it.
 
 **Recipe — mining new character voices:** take reference audio from a corpus in a *different*
-language with a distinctive vocal register, generate in your target language at **dose 0**
-(no emotion adapter), and treat the output as a **new voice** rather than a transfer. You get a
-usable, distinctive character voice that is not a copy of the source speaker. This is a cheap
-way to populate a character-voice bank from any expressive corpus, and it sidesteps the identity
-question entirely because you are not trying to preserve identity.
+language with a distinctive vocal register, generate in your target language at **dose 0** (no
+emotion adapter), generate **8+ candidates**, and treat the output as a **new voice** rather than
+a transfer. You get a usable, distinctive character voice that is not a copy of the source
+speaker. This is a cheap way to populate a character-voice bank from any expressive corpus, and
+it sidesteps the identity question entirely — you are not trying to preserve identity.
 
-If you *are* trying to preserve identity across languages, the ceiling is ~0.62 and only at
-dose 0 — see §3.
+If you *are* trying to preserve identity across languages, this method does not do it. The best
+single reference reached 0.622 and that was not predictable in advance.
 
 ---
 
