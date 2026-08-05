@@ -1,0 +1,51 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Multi-part performances &amp; voice conversion — MOSS-VA-v2</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>Multi-part performances: keeping one actor across parts</h1>
+<p><em>Measured page, added 2026-08-05. Written because the first multi-part run got this wrong and the result was audible: a 30-second performance that sounded like three different people spliced together.</em></p>
+<p>Mirrors: <a href="https://laion-ai.github.io/moss-voiceacting-manual/site/recipes/multipart_and_voice_conversion.html">HTML</a> · <a href="https://github.com/LAION-AI/moss-voiceacting-manual/blob/main/md/recipes/multipart_and_voice_conversion.md">Markdown</a></p>
+<hr>
+<h2>1. Why you need parts at all</h2>
+<p>A ~30 s performance with a dramatic arc cannot be generated in one call:</p>
+<ul><li><b>The truncation wall.</b> The model predicts EOS early on emotionally loaded scripts. Long takes come back cut off. (See the burst chapter, §2.5.)</li><li><b>One take holds one emotion.</b> A single generation conditioned on one caption does not turn from composure to collapse. The turn has to happen <em>between</em> generations.</li></ul>
+<p>So a performance is 2–4 <b>parts</b>, each generated best-of-N, assembled afterwards.</p>
+<h2>2. The mistake to avoid: parts with no shared speaker</h2>
+<p><b><code>build_user_message</code> takes a <code>reference</code> argument. Use it.</b></p>
+<p>``<code>python proc.build_user_message(text=..., instruction=..., language=&quot;English&quot;, reference=[&quot;/path/to/part0.wav&quot;],   # &amp;lt;-- the anchor voice tokens=...) </code>``</p>
+<p>If you omit it, <b>every part is an independent draw of an unspecified speaker.</b> The model has no reason to pick the same voice twice, and it does not. A three-part assembly is then three different actors, and no amount of crossfading hides it.</p>
+<p><b>The rule:</b></p>
+<p>1. <b>Part 0 chooses the voice.</b> Generate it with no reference, pick the best candidate, and treat that clip as the <em>anchor</em> for the whole performance. 2. <b>Every later part is generated with the anchor as <code>reference</code>.</b> 3. <b>Measure, do not assume.</b> Compute ECAPA cosine similarity of each candidate against the anchor. Reference conditioning improves continuity; it does not guarantee it, and emotional parts drift more than calm ones. 4. Make speaker similarity part of the score you rank assemblies with. Otherwise the ranker will happily pick a beautifully acted part that is a different person.</p>
+<h2>3. When conditioning is not enough: Chatterbox voice conversion</h2>
+<p>If a part still lands below your similarity threshold (~0.55 works), convert it to the anchor's identity instead of throwing it away.</p>
+<p><b>Tool:</b> <a href="https://github.com/LAION-AI/chatterbox-voice-conversion"><code>LAION-AI/chatterbox-voice-conversion</code></a>, zero-shot VC on Resemble AI's Chatterbox S3Gen. Content tokens from the source, a 192-dim CAMPPlus x-vector from the target, flow-matching decoder, HiFi-GAN vocoder, 24 kHz out.</p>
+<p>```python from chatterbox_vc.convert import VoiceConverter</p>
+<p>vc = VoiceConverter(device="cuda")          # ~1.5 GB, ~7 s to load once out = vc.convert(source_audio="part1.wav",   # the part whose identity is wrong target_voice="anchor.wav",  # 6-10 s of the voice you want output_path="part1_fixed.wav")   # returns float32 @ 24 kHz ```</p>
+<p>Measured on this cluster: model load <b>~7 s</b> on GPU (27 s cold on CPU), conversion of a 6 s clip <b>~20 s on CPU</b>, far faster on GPU. Weights are cached at <code>$HF_HUB_CACHE/models--ResembleAI--chatterbox</code>.</p>
+<p><b>Chain it, do not fan it out.</b> Convert part 1 to part 0's identity, then part 2 to the <em>already-aligned</em> part 0+1 identity, and so on. Converting everything to a moving target reintroduces the drift you are trying to remove.</p>
+<h3>VC is a repair, not a default</h3>
+<p>Conversion can flatten the emotion and add artefacts. <b>Check both sides before keeping it:</b></p>
+<table><tr><th class="">check</th><th class="">keep the conversion only if</th></tr><tr><td class="">ECAPA similarity to the anchor</td><td class="">it went <b>up</b></td></tr><tr><td class=""><b>DNSMOS <code>ovrl_mos</code></b></td><td class="">it did <b>not drop</b> (a tolerance of ~0.15 is reasonable)</td></tr></table>
+<p>``<code>python from speechmos import dnsmos before = dnsmos.run(orig_16k, 16000)[&quot;ovrl_mos&quot;] after  = dnsmos.run(conv_16k, 16000)[&quot;ovrl_mos&quot;] </code>``</p>
+<p>A measured example from this stack: a 6 s casting part scored <b>3.345 → 3.358</b> overall MOS across conversion — i.e. no damage, so the conversion was worth keeping. Do not assume that generalises; emotional and non-verbal material is exactly where VC is most likely to cost you.</p>
+<h2>4. Assembling</h2>
+<ul><li><b>Crossfade the seam.</b> A hard concatenation leaves a click that the quality head reliably punishes, which makes every multi-part assembly look worse than it is. 25 ms equal-power is enough.</li><li><b>Rank whole assemblies, not parts.</b> Two individually excellent parts can join badly — a level jump, a tempo jump, or the same emotion twice where the script wanted a turn. Keep the top-K of each part and score every combination.</li><li><b>Score the arc explicitly.</b> A take that holds one emotion beautifully for 30 s is not a dramatic performance. Include a term for whether the dominant emotion actually changes between parts.</li></ul>
+<h2>5. Sizing the parts</h2>
+<p><code>tokens</code> is derived from the <b>word count</b>. For a part that is deliberately <b>non-verbal</b> (screaming, sobbing, agony), the text has almost no words — so the model is told to produce about five tokens and dutifully stops after ~0.3 s. This produced a 13 s "30-second" performance in the first run.</p>
+<p><b>For non-verbal parts, set <code>tokens</code> from the intended duration</b> (~12.5 per second) rather than from the word count, and raise <code>max_new_frames</code> to match.</p>
+<hr>
+<h2>6. Checklist</h2>
+<ul><li>[ ] Part 0 generated with <b>no</b> reference; best candidate saved as the anchor</li><li>[ ] Parts 1..n generated with <code>reference=[anchor]</code></li><li>[ ] ECAPA similarity measured against the anchor for every candidate</li><li>[ ] VC applied only below threshold, kept only if similarity ↑ <b>and</b> DNSMOS not ↓</li><li>[ ] Non-verbal parts sized by duration, not word count</li><li>[ ] Seams crossfaded</li><li>[ ] Assemblies ranked as wholes, with speaker similarity and arc in the score</li></ul>
+</body></html>
