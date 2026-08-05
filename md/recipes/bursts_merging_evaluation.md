@@ -13,6 +13,43 @@ so the two cannot drift apart.
 
 ---
 
+## 0. Does merging the burst adapter actually make the burst happen?
+
+**Yes — about 3× more often than the prompt alone. And the emotion adapter on its own makes it
+worse.** This is the question an agent actually needs answered, so it comes first.
+
+Identical carrier sentences, identical inline burst request, identical seeds. 1,440 generations,
+8 emotion families, 60 burst classes.
+
+| configuration | **burst actually occurs** | blend | genuineness | burst duration |
+|---|--:|--:|--:|--:|
+| no LoRA at all — prompt only | **23.6 %** | 5.98 | 1.00 | 0.36 s |
+| emotion LoRA @0.5 only | **16.7 %** | 6.27 | 1.15 | 0.40 s |
+| **burst LoRA @1.0** | **71.9 %** | 3.93 | 1.94 | 0.56 s |
+| burst @1.0 + emotion @0.5 | 70.8 % | 3.82 | 1.84 | 0.54 s |
+
+🎧 **[Listen to all four cells side by side](https://projects.laion.ai/laion-moss-local-1.5-voice-acting-4.55b/burst_lora_with_without.html)**
+
+Three things worth knowing before you tune anything:
+
+- **The prompt alone already works about a quarter of the time.** MOSS performs an inline burst
+  marker from the caption without any adapter. So `<gasp>` in the SCRIPT is not decoration — keep
+  it. The adapter *multiplies* that base rate; it does not replace the tag.
+- **The emotion adapter on its own SUPPRESSES the burst** — 23.6 % → 16.7 %, *below* the no-adapter
+  baseline. If you want a burst inside emotional speech, do not reach for the emotion adapter and
+  hope; it works against you.
+- **Genuineness goes up, not down** (1.00 → 1.94). The whole cost is paid in **blend**
+  (5.98 → 3.93): the burst happens more often and sounds more genuine, but sits less smoothly
+  inside the sentence.
+
+**Recipe — "I want this specific burst here":** put the burst inline in the SCRIPT, merge that
+class's adapter at **λ = 0.75–1.0**, and keep any emotion adapter at **≤ half** the burst dose.
+That takes you from roughly one take in four to roughly three in four. If you need it in *every*
+take, generate 4–8 candidates and select on burst presence — at 72 % per take, 4 candidates give
+you ~99 %.
+
+---
+
 ## 1. Vocal-burst adapters: the merge-dose curve
 
 **Setup.** 64 vocal-burst adapters ([`laion/vocal-burst-lora-adapters`](https://huggingface.co/laion/vocal-burst-lora-adapters)),
