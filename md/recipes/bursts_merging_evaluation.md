@@ -160,6 +160,66 @@ below half of the burst adapter's dose.**
 
 ---
 
+## 2.5 Getting the burst AND the rest of the sentence
+
+A burst is worthless if the model produces it and then stops. This is a real, named failure mode
+on this stack — the **truncation wall** — and it was hit twice by the edge-case swarm before it
+was ever measured here.
+
+> **T0003 (breaking down mid-eulogy):** *"The model consistently predicted EOS tokens immediately
+> following the first phrase, regardless of frame budget or prompt."* Removing all punctuation
+> from the script was what finally extended the utterance.
+>
+> **T0006 (jump scare):** *"The 'silence beat' in the script often triggers early truncation."*
+> A four-stage arc (gasp → silence → recovery → nervous laugh) could not be held together in one
+> generation window.
+
+**What to do about it, today:**
+
+- **Keep the burst tag inline in the SCRIPT** — `"…leave when" (Chuckle) "and then everything
+  made sense."` — and make sure real words follow it. T0005 found placing the tags directly in
+  the script text was *"critical for breaking repetitive patterns and forcing the model to
+  interleave speech with physical effort"*, and §0 quantifies why: the tag alone lands the burst
+  ~24 % of the time before any adapter is involved.
+- **Do not put a silence beat or a `[pause]` directly after the burst.** That is the shape that
+  triggers early EOS.
+- **Strip punctuation from a burst-heavy script** if it truncates. Measured to help in T0003.
+- **Give the frame budget room** — `max_new_frames` has to cover burst *plus* the remaining words.
+- **Verify it, do not assume it.** Burst presence alone cannot see this failure: a take that
+  produces a perfect gasp and then stops scores presence 1.0. Check that the words *after* the
+  burst survive into an ASR transcript.
+
+⚠️ **Open, being measured now.** Whether *telling the model in words* that speech resumes —
+e.g. appending *"The speaker makes the sound mid-sentence and then continues speaking the rest of
+the line without stopping"* to GENERAL, or *"(amused, then continues the sentence)"* as the cue —
+buys tail coverage that dose alone cannot. Six named strategies (`plain`, `continue_general`,
+`continue_cue`, `continue_both`, `connective`, `no_punct`) are being swept at a **fixed** dose so
+the prompt effect is not confounded with the merge effect, then handed to an evolutionary agent
+loop per emotion family. **This section will be updated with the answer; do not guess in the
+meantime.**
+
+---
+
+## 2.6 What the edge-case swarm learned that still applies
+
+These findings come from eight autonomous edge-case missions that **never used the vocal-burst
+adapters** — they reached for VoiceNet dimension LoRAs and inline script tags instead. That makes
+them complementary to §0–§2, not superseded by them.
+
+| finding | source | why it matters here |
+|---|---|---|
+| **The anchor-and-leak strategy.** A strong formal/narrator clamp (`vn_S_NARR_high@0.7` + `vn_CLRT_high@0.5`) with only a *low* dose of the burst-triggering LoRA allowed to leak transients through. Full-strength percussive LoRAs *"successfully triggered bursts but introduced fry and cartoonish distortion"*. | T0002, tongue clicking | The same presence↔quality trade as §1, found independently by a different route. **Untested with the real burst adapters** — a promising alternative to simply raising the dose. |
+| **Onset LoRAs collapse synthesis.** High-intensity onset adapters (ARSH / ATCK) produce **broadband static** when combined with a high-resonance reference voice. | T0006, jump scare | Directly on point for "raise burst probability without wrecking the speaker". If you hear digital buzzing, this is the cause. |
+| **Pitch modifiers are catastrophic in burst configurations.** `vn_GEND_high` caused whistling artefacts and total failure. | T0005, speaking while climbing | Do not stack pitch modifiers onto burst-heavy merges. |
+| **Air-starvation beats chest resonance for effort sounds.** `vn_R_CHST_high` produced *"theatrical shouting and repetitive loops"*; `emotion_Fatigue_Exhaustion` + `vn_RESP_high` produced a realistic compressed vocal tract. | T0005 | For grunts/gasps of exertion, model the breath, not the volume. |
+| **Sampling for burst-heavy takes.** Low temperature (0.7–0.9) with higher `top_k`/`top_p` keeps articulation while allowing physical jitter; screams and sustained bursts need temperature ≥ 1.4. | T0005, T0006, edge-case evolution | The default `temp 1.0 / top_p 0.95 / top_k 30` is a compromise; move it deliberately. |
+
+Raw evidence and the unified write-up live in the swarm memory at
+`TTS-AGI/voice-acting-swarm-artifacts` → `experience/vocal_bursts_in_speech.md`, with per-group
+JSON under `tasks/VB-dose/` and `tasks/VB-control/`.
+
+---
+
 ## 3. Identity vs. dose: the ceiling on all of this
 
 Merge dose does not only trade blend for presence — with a **reference voice** it destroys the
@@ -201,6 +261,46 @@ reliable burst, generate more candidates at λ ≤ 0.5 and select, rather than p
   a 32-candidate group's cost with CrisperWhisper and **12 %** with Parakeet. Rank on Parakeet,
   then re-transcribe only the top 3 with the good model — that is **+182 GPU-hours** on a
   40 × 3,000-group run instead of **+1,804**.
+
+---
+
+## 4.5 Training data: real recordings beat a synthetic-plus-real mix
+
+Measured on the sports-commentator adapters, and it changes how you would build any style LoRA.
+
+Two runs, same script, same hyperparameters, same seed, same held-out prompts. One trained on
+**820 filtered synthetic English generations + 468 real German broadcast segments**; the other on
+the **468 real segments only**.
+
+**The real-only run won 11 of 12 matched configurations, tied 1, lost none** — paired Wilcoxon
+**p = 0.0010** — and 7 of its 12 cells reached a perfect score against the mixed run's best of
+1.969.
+
+| | mixed | real only |
+|---|--:|--:|
+| mean judge over 12 cells | 1.891 | **1.979** |
+| arousal | 3.914 | **4.633** |
+| ranting / worked-up | 3.097 | **4.530** |
+| emphasis | 4.201 | **4.738** |
+| WER | 0.061 | 0.066 *(p = 0.13 — no cost)* |
+| genuineness | **0.761** | 0.610 |
+| vocal-burst blend | **1.030** | 0.702 |
+
+Three things to carry away:
+
+- **Adding synthetic data of the target style made the adapter worse**, not better. It diluted the
+  register. If you have a small amount of genuine material, consider using only that.
+- **It transferred across a language boundary.** The real-only adapter saw *German only* and was
+  evaluated on *English* prompts — and still won. WER was unchanged, so this is not accent fooling
+  the judge; the *register* transferred.
+- **The cost is genuineness and blend.** Real-only adapters are louder and more performed. If you
+  are stacking one under a vocal-burst adapter, note that blend is already the scarce resource
+  (§1) and this spends more of it.
+
+**Published:** [`laion/moss-sports-commentator-lora`](https://huggingface.co/laion/moss-sports-commentator-lora)
+— use **`real_r64_e8`**, the default for energetic, real-sounding commentary. It was chosen by
+*listening*: the automatic metrics ranked `real_r32_e2` first on WER, and WER is not what makes
+commentary good. 🎧 [side-by-side A/B](https://projects.laion.ai/laion-moss-local-1.5-voice-acting-4.55b/sports_lora_real_vs_mixed.html)
 
 ---
 
