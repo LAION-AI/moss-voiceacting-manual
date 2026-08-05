@@ -42,11 +42,65 @@ Three things worth knowing before you tune anything:
   (5.98 → 3.93): the burst happens more often and sounds more genuine, but sits less smoothly
   inside the sentence.
 
-**Recipe — "I want this specific burst here":** put the burst inline in the SCRIPT, merge that
-class's adapter at **λ = 0.75–1.0**, and keep any emotion adapter at **≤ half** the burst dose.
-That takes you from roughly one take in four to roughly three in four. If you need it in *every*
-take, generate 4–8 candidates and select on burst presence — at 72 % per take, 4 candidates give
-you ~99 %.
+> ### ⚠️ Correction (later measurement): use **λ = 0.5**, not 0.75–1.0
+>
+> The table above measures **presence and blend only**. A follow-up run measured what happens to
+> **the rest of the sentence**, and it changes the answer. `tail_cov` below is the fraction of the
+> words written *after* the burst that survive into an ASR transcript — i.e. did the model finish
+> the line, or did it produce the burst and stop.
+>
+> | burst λ | burst occurs | **tail_cov** | blend | WER | joint |
+> |--:|--:|--:|--:|--:|--:|
+> | 0.00 | 21.9 % | **1.00** | 6.63 | 0.05 | 0.219 |
+> | 0.20 | 22.9 % | 0.99 | 5.96 | 0.06 | 0.227 |
+> | **0.50** | 50.3 % | **0.90** | 4.93 | 0.15 | **0.448** ← best |
+> | 0.75 | 64.6 % | 0.71 | 4.27 | 0.33 | 0.390 |
+> | 1.00 | 72.1 % | **0.45** | 4.07 | **0.57** | 0.261 |
+>
+> `joint = presence × tail_cov × min(1, blend/5)`. n = 384 per cell, 3,840 generations.
+>
+> **At full merge more than half the words after the burst are never spoken, and WER hits 0.57.**
+> The adapter buys burst presence partly by eating the rest of the line. Ranked on presence alone
+> λ = 1.0 wins; ranked on "burst *and* sentence *and* blend", **λ = 0.50 with no emotion adapter
+> is the best cell**, and λ = 1.0 falls below λ = 0.20.
+>
+> Add an emotion adapter only if you need the emotion: at every dose it costs a little presence
+> and a little tail coverage.
+
+**Recipe — "I want this specific burst here":** put the burst inline in the SCRIPT and merge that
+class's adapter at **λ = 0.5**. That takes you from roughly one take in five to one in two, while
+keeping ~90 % of the sentence after the burst intact. Then **generate 4–8 candidates and select on
+burst presence** — at 50 % per take, 5 candidates give ~97 %. Selection is the cheap way to raise
+the rate; dose is the expensive one, and you pay for it in words.
+
+Go to λ = 0.75 only when the burst matters more than the line, and to λ = 1.0 only for a part that
+is *meant* to be non-verbal.
+
+---
+
+## 0.5 Prompting does **not** fix the truncation — measured
+
+The obvious idea is to tell the model in words that speech resumes after the burst. It was worth
+testing and it does not work. Six strategies at a **fixed** dose (burst 0.75 / emotion 0.5), so any
+difference is the prompt and not the merge — 1,152 generations:
+
+| strategy | burst occurs | tail_cov | blend | WER | joint |
+|---|--:|--:|--:|--:|--:|
+| **`plain`** — inline tag only | 64.6 % | 0.688 | 4.03 | 0.36 | **0.358** |
+| `connective` — resume with "and …" | 65.1 % | 0.693 | 3.85 | 0.35 | 0.347 |
+| `continue_both` | 65.1 % | 0.667 | 3.94 | 0.38 | 0.342 |
+| `no_punct` — strip punctuation | **67.7 %** | 0.651 | 3.76 | 0.43 | 0.332 |
+| `continue_cue` — "(amused, then continues the sentence)" | 62.5 % | 0.687 | 3.76 | 0.36 | 0.323 |
+| `continue_general` — spelled out in GENERAL | 63.0 % | 0.638 | 3.68 | 0.39 | 0.296 |
+
+**The plain inline tag wins.** Every attempt to instruct continuation scored *lower*, and spelling
+it out in the GENERAL caption was the worst of the six. Stripping punctuation raises burst presence
+(the highest of any strategy) but pays for it in tail coverage and WER, so it is a trade rather
+than a fix.
+
+Differences are small and n = 192 per strategy, so read this as *"no strategy helps"* rather than
+a precise ranking. The actionable conclusion is unambiguous: **you cannot prompt your way out of
+the truncation. Lower the dose (§0) and select over candidates.**
 
 ---
 
