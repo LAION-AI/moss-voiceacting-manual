@@ -31,7 +31,18 @@ blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 
 margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
 ul{padding-left:22px}li{margin:6px 0;font-size:14px}
 hr{border:0;border-top:1px solid #21262d;margin:26px 0}
-em{color:#a9b6c6}"""
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}"""
 
 INLINE = (
     (re.compile(r"`([^`]+)`"), lambda m: f"<code>{html.escape(m.group(1))}</code>"),
@@ -65,6 +76,17 @@ def render(md):
 
         if not s:
             i += 1
+            continue
+
+        # raw HTML passthrough: a line starting with <div/<audio/<table is emitted verbatim, so a
+        # page can carry embedded audio players that Markdown cannot express (GitHub strips
+        # <audio>, so the .md keeps links and the generated .html keeps the players)
+        if s.startswith(("<div", "<audio", "<table", "<section", "<!--HTML")):
+            buf = []
+            while i < len(lines) and lines[i].strip():
+                buf.append(lines[i])
+                i += 1
+            out.append("\n".join(buf))
             continue
 
         if s.startswith("#"):
