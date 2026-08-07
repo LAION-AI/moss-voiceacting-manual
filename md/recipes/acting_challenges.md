@@ -12,20 +12,21 @@ sensor stack only. A supervisor listens afterwards and gives feedback for the ne
 > Everything below is true and is the fastest way in; the tree has the per-challenge recipes with
 > verbatim captions, the cross-version numbers, the scoring formulas each generation actually used,
 > and the failures in full.
->
-> | | |
-> |---|---|
-> | [Map & headline findings](acting/index.html) | what was run, in what order, and the five findings that are not on this page |
-> | [**Per challenge**](acting/per_challenge.html) | for each of the nine briefs: every round ever run, the recipe worth re-running, its full verbatim caption / adapters / doses / sampling, and why it won |
-> | [Version history](acting/versions.html) | generation by generation, with the cross-version tables |
-> | [What worked](acting/what_worked.html) · [partly](acting/what_partly_worked.html) · [failed](acting/what_failed.html) | with the measurement behind each claim, and the boundary where it stops paying |
-> | [Metrics](acting/metrics.html) | the exact formulas, the thresholds, and the three scoring terms that carry no information |
-> | [Every prompt](acting/prompts.html) | all 351 part-captions, verbatim |
-> | [Edge-case swarm](acting/swarm_edgecases.html) | `T0001`–`T0008`: the recipes, and why half the reports should be read sceptically |
->
-> Three corrections the tree makes to this page: the "seven generations" are four complete runs plus
-> three aborted ones; **`out_v5_real`'s results are not paired with its plans** and must not be used;
-> and the supervisor rankings from v1/v2/v5 measure presentation order, not quality.
+
+| page | what is in it |
+|---|---|
+| [Map & headline findings](acting/index.html) | what was run, in what order, and the five findings that are not on this page |
+| [**Per challenge**](acting/per_challenge.html) | for each of the nine briefs: every round ever run, the recipe worth re-running, its full verbatim caption / adapters / doses / sampling, and why it won |
+| [Version history](acting/versions.html) | generation by generation, with the cross-version tables |
+| [What worked](acting/what_worked.html) · [partly worked](acting/what_partly_worked.html) · [failed](acting/what_failed.html) | the measurement behind each claim, and the boundary where it stops paying |
+| [Metrics](acting/metrics.html) | the exact formulas, the thresholds, and the three scoring terms that carry no information |
+| [Every prompt](acting/prompts.html) | all 351 part-captions, verbatim |
+| [Edge-case swarm](acting/swarm_edgecases.html) | `T0001`–`T0008`: the recipes, and why half the reports should be read sceptically |
+
+Three corrections the tree makes to this page: the "seven generations" are **four** complete runs
+plus three aborted launches; **`out_v5_real`'s results are not paired with its plans** and must not
+be used; and the **supervisor rankings from v1/v2/v5 measure presentation order**, not quality — the
+listener picked the 4th or 5th take presented in 71 of 81 rounds.
 
 ---
 
