@@ -1,0 +1,77 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>acting_challenges.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>Acting challenges: running an autonomous casting agent</h1>
+<p>Everything measured across seven generations of the casting harness (9 challenges × 3 rounds each, ~2,000 generations). Read this before writing an acting plan — most of it was learned the expensive way, and several items are things a listener caught that no metric was watching.</p>
+<p>The shape of the task: a ~30 s performance with a dramatic arc, written as <b>2–4 parts</b>, each generated <b>best-of-16</b>, assembled as the best <em>combination</em> across parts, ranked by the local sensor stack only. A supervisor listens afterwards and gives feedback for the next round.</p>
+<hr>
+<h2>0. The one-page checklist</h2>
+<ul><li>[ ] Part 0 with <b>no</b> reference; its best take becomes the <b>anchor</b></li><li>[ ] Later parts as <b>continuations</b> from <b>anchor + ~4 s tail</b> (§1)</li><li>[ ] <code>GENERAL</code> voice description <b>byte-identical</b> across parts (§2)</li><li>[ ] Seeds unique <b>per task</b>, and several sub-batches per part (§3)</li><li>[ ] Every part <b>starts and ends on a word</b> — bursts go inside the line (§4)</li><li>[ ] Cues written as <b>actions</b>, not tone descriptions (§5)</li><li>[ ] <code>tempo_target</code> / <code>chunk_target</code> declared; <code>prosody_turn</code> only where intended (§6)</li><li>[ ] Non-verbal parts sized by <b>duration</b>, not word count; not gated on speaker similarity (§7)</li><li>[ ] Seams <b>level-matched</b> and crossfaded; assemblies ranked whole (§8)</li></ul>
+<hr>
+<h2>1. Continuation, from an anchor</h2>
+<p>Reference conditioning keeps timbre roughly right but starts a <em>fresh utterance</em> with its own level and attack — heard as a cut. <code>mode=&quot;continuation&quot;</code> puts the previous audio in the <b>assistant turn</b>, so new tokens continue real acoustic context.</p>
+<p>Chaining from the <em>whole</em> previous part is worse than it sounds: drift compounds and the long prefix drags the old mood forward.</p>
+<table><tr><th class=""></th><th class="">part 1</th><th class="">part 2</th><th class="">part 3</th></tr><tr><td class="">chained from full previous part</td><td class="">0.691</td><td class="">0.692</td><td class=""><b>0.280</b></td></tr><tr><td class=""><b>anchor + 4 s tail</b></td><td class="">0.777</td><td class="">0.787</td><td class=""><b>0.835</b></td></tr></table>
+<p>Mechanics that each cost a debugging cycle: the assistant turn takes <b>codec codes <code>[T, 12]</code></b>, not a waveform; <code>encode_audios_from_wav</code> wants a <b>torch tensor</b>; <code>text</code> must be <b>cumulative</b>; and the decode returns <b>only the continuation</b> — do not trim it.</p>
+<h2>2. Identity must be enforced, not ranked</h2>
+<p>Ranking the best of one batch is not enough: if a whole batch drifts, the least-bad take still ships, which is how a listener ends up hearing a second actor mid-scene.</p>
+<table><tr><th class="">control</th><th class="">value</th><th class="">action</th></tr><tr><td class=""><code>spk_target</code></td><td class="">0.82</td><td class=""><b>regenerate the part</b> with fresh seeds, merge pools</td></tr><tr><td class=""><code>vc_threshold</code></td><td class="">0.75</td><td class="">attempt voice conversion as a repair</td></tr><tr><td class=""><code>spk_floor</code></td><td class="">0.68</td><td class="">reject the take outright</td></tr><tr><td class="">assembly term</td><td class="">—</td><td class=""><b>½ mean + ½ worst part</b></td></tr></table>
+<p>Test the take that would actually be <b>kept</b>, not the best similarity available in the batch — testing the maximum meant a batch containing one good take never resampled even when ranking then chose a different one 0.3 lower.</p>
+<p>Free textual levers: append an explicit <em>"the same speaker continues without interruption… no cut, no new narrator"</em> sentence to <code>GENERAL</code> on every continuation part, and <b>keep the voice description identical word-for-word</b> across parts. Re-describing the voice invites a new one.</p>
+<p><b>Result:</b> mean 0.662 → <b>0.784</b>; below 0.75 54 % → <b>17 %</b>. On spoken scenes alone, <b>0.816 mean and 0 % below 0.55</b>.</p>
+<h2>3. Seeds must vary per task and per sub-batch</h2>
+<p>A listener noticed that <em>the same vocal burst opened the same part in unrelated challenges</em>. The cause was arithmetic:</p>
+<p>``<code>python seed = 7000 + 100 <em> rnd + 10 </em> pi + 3331 * att      # &amp;lt;-- no task term </code>``</p>
+<p>Every one of nine challenges drew <b>seed 7110</b> for round 1 part 1. And with <code>cands == batch</code> there was only ever one chunk, so <code>torch.manual_seed(seed + i)</code> set <b>one</b> RNG stream per part.</p>
+<p>``<code>python seed = (zlib.crc32(task.encode()) % 100000) <em> 1000 + 7000 + 100</em>rnd + 10<em>pi + 3331</em>att torch.manual_seed(seed + 7919 * (i // batch))       # several sub-batches per part </code>``</p>
+<p>Correlated seeds do not just repeat artefacts across conditions — they make <b>best-of-16 explore one neighbourhood</b>, so the selection is far weaker than the candidate count suggests. Keep <code>batch &amp;lt; cands</code> so a part is drawn from several independent streams.</p>
+<h2>4. Never open or close a part with a vocal burst</h2>
+<p>A gasp, throat noise or sigh in the <b>first or last ~0.45 s</b> lands exactly <b>on the join</b> once parts are concatenated, and reads as a glitch rather than as acting. Two defences:</p>
+<ul><li><b>Write it out.</b> Every part starts on a word and ends on a word; bursts go <em>inside</em> the line. The continuation caption also states this explicitly.</li><li><b>Measure it.</b> Count burst-locator spans overlapping the first/last 0.45 s and penalise them (<code>× (1 − 0.15·edge_bursts)</code> per candidate). Bursts inside the line are untouched — there a burst is usually the point.</li></ul>
+<h3>Weight the blend score, or you select against blending</h3>
+<p>Burst <b>blending</b> (0–10: does the burst grow out of the speech or sit on top of it) had weight <b>0.00</b> in candidate ranking and 0.08 in the assembly score, while genuineness — which correlates <b>−0.21</b> with blending — carried 0.34. The ranker was therefore mildly selecting <em>against</em> clean blending, and <b>24 % of shipped assemblies scored below 3/10</b>. Blending is now 0.11 per candidate and 0.12 in the assembly.</p>
+<h2>5. The narration failure — and how to write around it</h2>
+<p>The most common continuation failure is subtle: the voice stays correct but the model <b>stops acting and reads the remaining words out</b>. It is measurable — VoiceNet's style heads give a narration index:</p>
+<p>``<code> narration = ½(S_NARR + S_NEWS) − ½(S_DRAM + S_CONV)      # positive = reading it out </code>``</p>
+<p>The writing lever that matters: <b>make the cue an action the character performs, not a description of a tone.</b> "The sentence collapses halfway and they have to start it again" is a direction; "sad, resigned" is a label, and a label is an invitation to narrate.</p>
+<h2>6. Prosody: smooth, or changed for a stated reason</h2>
+<blockquote>Chunking, disfluency and tempo must <b>either flow smoothly</b> from part to part, <b>or change for a declared reason.</b></blockquote>
+<p>Declare <code>tempo_target</code>, <code>chunk_target</code> and <code>prosody_turn</code> per part. Undeclared seams stay within ~1 point; a declared turn must actually move (1–3 points), not lurch. <code>runaway</code> (word rate above ~4.0/s, or an undeclared very high tempo) multiplies the score down rather than subtracting.</p>
+<p><b>The tempo dial saturates.</b> Measured over 77 parts:</p>
+<table><tr><th class="">asked</th><th class="">1</th><th class="">2</th><th class="">3</th><th class="">4</th></tr><tr><td class="">measured</td><td class="">2.97</td><td class=""><b>2.07</b></td><td class=""><b>2.84</b></td><td class="">2.82</td></tr></table>
+<p>Bias −0.16, mean absolute error 0.75 — plans <em>are</em> followed, but the usable range is ~2–3. Asking for 4 buys nothing. Get urgency from the cue, the emotion adapter or the chunking.</p>
+<p><b>Chunking is the dial for fear, not tempo.</b> Real distress is held breath and short broken groups. <code>chunk_target</code> 1–2 at ordinary tempo reads as genuine fear; <code>tempo_target</code> 5 reads as a caffeinated narrator.</p>
+<p><b>Result:</b> seam jumps over 2 points 30 % → <b>12 %</b>; runaway 0.115 → <b>0.063</b>; words/sec over the ceiling 47 % → <b>23 %</b>.</p>
+<h2>7. Non-verbal parts are a different regime</h2>
+<ul><li><b>Size by duration, not word count.</b> <code>tokens</code> defaults to the word count, and a scream's text ("Aaaahh-! Kh-kh-!") has almost none — the model makes ~5 tokens and stops after 0.3 s. Use ~12.5 tokens per intended second.</li><li><b>Do not gate them on speaker similarity.</b> ECAPA needs voiced sustained material; a 1–3 s scream gives it almost none. Splitting the same run: spoken scenes **0.816 mean, 0 % below 0.55<b>; non-verbal </b>0.610, 38 % below 0.55**. <em>Every</em> remaining identity failure is a scream. A 0.82 gate there burns resamples on something it cannot fix.</li><li><b>Watch for empty batches.</b> Non-verbal parts sometimes return 16 candidates that all decode to empty audio; continuing from an empty part poisons the next one (0.367 similarity downstream). Detect and regenerate rather than continuing.</li></ul>
+<h2>8. Assembly hygiene</h2>
+<ul><li><b>Level-match every part to part 0</b> over the loudest ~60 % of frames, then one gentle peak normalisation of the whole take.</li><li><b>25 ms equal-power crossfade</b> at each seam.</li><li><b>Rank whole assemblies</b>, not parts — keep top-K per part, score every combination.</li><li><b>Measure the arc continuously.</b> The original arc term counted whether the argmax EmoNet label changed; it saturated at <b>0.977 with 86 % of assemblies at exactly 1.0</b> while a listener heard no arc at all. Use cosine movement of the EmoNet profile plus peak swing.</li></ul>
+<h2>9. Harness failures that each cost a run</h2>
+<ul><li><b>Stale handshake files.</b> An interrupted archive left nine <code>STOP</code> files; every worker exited "after 0 rounds" while the drivers consumed the <em>previous</em> run's results — a whole "new" run that was old audio with new plans attached, reporting 27/27 complete. Clear <code>STOP</code> and <code>round_*.req/res.json</code> at worker startup.</li><li><b>A missing API key looks exactly like a bad model.</b> With the key unset every planner call returns <code>None</code> and the driver logs "unparsable plan" three times and gives up. Fail loudly at startup instead.</li><li><b>Launch from a script, with <code>setsid</code>.</b> Interrupted inline launches leave half-started runs that look fine from the outside.</li><li><b>A diagnostic must not be able to kill the run it diagnoses.</b> <code>min()</code> over an empty list in a log line took down a worker mid-run.</li></ul>
+<h2>10. What is still open</h2>
+<ul><li><b>Rounds do not reliably improve.</b> Only 4 of 9 challenges peaked in their final round, and two got monotonically worse. The gains so far come from mechanical fixes, not from the feedback loop.</li><li><b>Agent and listener disagree about ranking</b>, ρ from −0.53 to +0.90. The local sensor stack is not yet a reliable proxy for a listener's ordering of five near-equal takes.</li><li><b><code>pros_fit</code> ≈ 0.62</b> is mostly model range, not disobedience (§6) — do not tune the planner against it.</li></ul>
+</body></html>
