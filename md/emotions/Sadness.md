@@ -36,5 +36,7 @@ Dose: 50% → reward 0.57 (emo 0.06) · 100% → 0.63 (emo 0.15) · 150% → 0.5
 ## Conclusion
 Best with the LoRA at 100% (reward 0.629, just above the prompt-only 0.604). Use the evolved prompt plus the 100% merge when you need genuine sadness — it pushes target-emotion strength from 0.007 to 0.152 and genuineness to 0.238. The cost is steep on intelligibility and quality: WER jumps 0.146 to 0.515 and the quality proxy falls 0.546 to 0.348, so keep lines short. It also drags in Distress and Helplessness (both corr ~0.93), so the voice sounds despairing rather than merely melancholy; if you need clean, intelligible sadness, prompt-only BASE_P (WER 0.146) is nearly as rewarding.
 
+**Contained / masked delivery** (grief held in, attention deflected outward): keep the LoRA strong and add masking with distraction — `Sadness@1.05 + vn_VULN_low@0.22 + Concentration@0.08` (measured contained−free gap: emotion kept, **VULN −0.64 to −1.01** — the largest VULN effect of the four studied). See the [contained / masked emotion chapter](../recipes/contained_emotion.md).
+
 ---
 [← all emotions](index.md) · [human/audio version](../../site/emotions/Sadness.html)

@@ -12,6 +12,7 @@ table{border-collapse:collapse;font-size:12px;margin:8px 0;width:100%}td,th{bord
 </head><body>
 <p><a href='../index.html'>← manual home</a></p><h1>Emotions — conditioning manual</h1>
 <p class=lead>For each of the 40 emotions: the best prompting strategy <b>with and without</b> the emotion LoRA, the expected reward, the best merge %, and the measured <b>side-effects / correlations</b> on other EmoNet emotions, VoiceNet dimensions, genuineness, vocal-burst blend and speech quality. Data: 40 emotions × 5 conditions × 32 samples on neutral sentences.</p>
+<div class=tip>🎭 <b>Want a <i>held-back</i> emotion, not a <i>mild</i> one?</b> To make an intense feeling sound <b>contained / masked</b> (cold controlled rage, forced-calm terror, swallowed grief) rather than simply weak, do <b>not</b> turn the emotion LoRA down — keep it strong and add a masking layer (<code>vn_VULN_low</code> + <code>Emotional_Numbness</code> + light <code>vn_TENS_high</code>). See the <a href='../recipes/contained_emotion.html'>contained / masked emotion chapter</a>. Per-emotion contained recipes are linked from Anger / Fear / Sadness / Amusement.</div>
 <table><tr><th class=l>emotion</th><th>best reward</th><th class=l>best strategy</th><th>LoRA lift</th></tr>
 <tr><td class=l><a href='Fatigue_Exhaustion.html'>Fatigue Exhaustion</a></td><td>0.84</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.21</td></tr>
 <tr><td class=l><a href='Sexual_Lust.html'>Sexual Lust</a></td><td>0.78</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.25</td></tr>

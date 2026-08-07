@@ -36,5 +36,7 @@ Dose: 50% → reward 0.60 (emo 0.09) · 100% → 0.48 (emo 0.17) · 150% → 0.5
 ## Conclusion
 Best reward is WITH the LoRA at 50% (0.603 vs 0.527 for the evolved prompt). The 50% merge lifts the fear-adjacent signal (emo 0.040 to 0.085), genuineness (0.132 to 0.192) and blend (0.431 to 0.532), but intelligibility and quality pay for it: WER more than doubles (0.228 to 0.493) and quality drops from 0.514 to 0.387. Fear manifests mainly as distress and vulnerability with an emotional-numbness/fatigue undertone (corr Distress 0.70, shift up Emotional Numbness +0.92). Avoid 100/150% — pushing emo higher smears the voice into anger and pain (LoRA150 shift up Anger +2.4, Pain +2.4) and WER reaches 0.834.
 
+**Contained / masked delivery** (forced-calm surface with terror alive underneath): keep the LoRA strong and add a thin masking layer — `Fear@1.02 + vn_VULN_low@0.16 + Emotional_Numbness@0.12 + vn_TENS_high@0.1` (measured contained−free gap: emotion +0.10 to +0.30, **VULN −0.42 to −0.55**). See the [contained / masked emotion chapter](../recipes/contained_emotion.md).
+
 ---
 [← all emotions](index.md) · [human/audio version](../../site/emotions/Fear.html)

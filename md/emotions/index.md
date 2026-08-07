@@ -2,6 +2,8 @@
 
 Per-emotion guide: best prompting strategy **with and without** the emotion LoRA, expected reward, best merge %, and the side-effects / correlations on other EmoNet emotions, VoiceNet dimensions, genuineness, vocal-burst blend and speech quality.
 
+> 🎭 **Want a *held-back* emotion, not a *mild* one?** To make an intense feeling sound **contained / masked** (cold controlled rage, forced-calm terror, swallowed grief) rather than simply weak, do **not** turn the emotion LoRA down — keep it strong and add a masking layer (`vn_VULN_low` + `Emotional_Numbness` + light `vn_TENS_high`). See the [contained / masked emotion chapter](../recipes/contained_emotion.md). Per-emotion contained recipes are also linked from Anger / Fear / Sadness / Amusement below.
+
 | emotion | best reward | best strategy | LoRA lift |
 |---|---|---|---|
 | [Fatigue Exhaustion](Fatigue_Exhaustion.md) | 0.84 | evolved prompt + LoRA 50% | +0.21 |

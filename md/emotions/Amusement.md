@@ -36,5 +36,7 @@ Dose: 50% → reward 0.43 (emo 0.06) · 100% → 0.50 (emo 0.14) · 150% → 0.5
 ## Conclusion
 Best reward is essentially a tie between no LoRA (neutral BASE, 0.504) and the LoRA at 150% (0.502); notably the evolved prompt (BASE_P, 0.459) actually hurts here, so prefer the plain base prompt for safe quality. If you need audibly perceptible amusement, only the LoRA delivers it — target-emotion strength climbs from ~0.01 (both no-LoRA conditions) to 0.259 at 150%, driving huge Teasing (+1.56) and Pleasure/Elation shifts. The trade-off is severe: vocal-burst blend collapses (0.453 to 0.175), speech quality drops (0.625 to 0.405) and WER rises (0.269 to 0.472). Its signature side-effect is that it strongly suppresses Concentration (-0.78) and Warmth, trading composure for giddiness.
 
+**Contained / masked delivery** ("trying not to laugh" — the hardest of the four; amusement and the effort of laughing are acoustically entangled): weak masking fails, only strong masking separates — `Amusement@0.98 + vn_VULN_low@0.62 + Emotional_Numbness + vn_TENS_high@0.32` (measured contained−free gap: **VULN −0.79**, Numbness +0.25) but it damps the laugh and can read too tense; a warm/soft, low-tension deadpan with a `Pain` lip-bite is under refinement. See the [contained / masked emotion chapter](../recipes/contained_emotion.md).
+
 ---
 [← all emotions](index.md) · [human/audio version](../../site/emotions/Amusement.html)

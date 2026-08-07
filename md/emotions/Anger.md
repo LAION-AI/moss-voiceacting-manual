@@ -36,5 +36,7 @@ Dose: 50% → reward 0.43 (emo 0.03) · 100% → 0.42 (emo 0.24) · 150% → 0.4
 ## Conclusion
 Best reward comes without the LoRA via the evolved prompt (BASE_P, 0.553, vs 0.432/0.420/0.427 for LoRA50/100/150) — but be warned that this top-reward config is barely angry (emo only 0.016). If you actually need genuine anger, you must accept the LoRA at 100-150%, which pushes emo to 0.24-0.28 (huge Impatience +1.9, Triumph, Malevolence shifts). The cost is brutal: blend craters from 0.446 to 0.129, quality from 0.552 to 0.261, and WER more than doubles (0.202 to 0.570). Its most notable side-effect is that it drags in Malevolence and Contempt while stripping Warmth (-0.48) and articulation clarity, so the anger sounds cruel and slurred rather than heated.
 
+**Contained / masked delivery** (cold, controlled rage instead of an open outburst): keep the LoRA strong and add a masking layer — `Anger@1.0 + vn_VULN_low@0.35 + Emotional_Numbness@0.3 + vn_TENS_high@0.4` (measured contained−free gap: emotion +0.13, **VULN −0.60**). See the [contained / masked emotion chapter](../recipes/contained_emotion.md).
+
 ---
 [← all emotions](index.md) · [human/audio version](../../site/emotions/Anger.html)
