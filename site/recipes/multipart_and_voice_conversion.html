@@ -1,4 +1,4 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>multipart_and_voice_conversion.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Multi-part performances &amp; voice conversion</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
 padding:30px;max-width:1000px;line-height:1.6}
 a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
 border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
@@ -23,7 +23,10 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Multi-part performances: keeping one actor across parts</h1>
 <p><em>Measured page, added 2026-08-05. Written because the first multi-part run got this wrong and the result was audible: a 30-second performance that sounded like three different people spliced together.</em></p>
@@ -35,21 +38,29 @@ em{color:#a9b6c6}
 <p>So a performance is 2–4 <b>parts</b>, each generated best-of-N, assembled afterwards.</p>
 <h2>2. The mistake to avoid: parts with no shared speaker</h2>
 <p><b><code>build_user_message</code> takes a <code>reference</code> argument. Use it.</b></p>
-<p>``<code>python proc.build_user_message(text=..., instruction=..., language=&quot;English&quot;, reference=[&quot;/path/to/part0.wav&quot;],   # &amp;lt;-- the anchor voice tokens=...) </code>``</p>
+<pre><code>proc.build_user_message(text=..., instruction=..., language=&quot;English&quot;,
+                        reference=[&quot;/path/to/part0.wav&quot;],   # &lt;-- the anchor voice
+                        tokens=...)</code></pre>
 <p>If you omit it, <b>every part is an independent draw of an unspecified speaker.</b> The model has no reason to pick the same voice twice, and it does not. A three-part assembly is then three different actors, and no amount of crossfading hides it.</p>
 <p><b>The rule:</b></p>
 <p>1. <b>Part 0 chooses the voice.</b> Generate it with no reference, pick the best candidate, and treat that clip as the <em>anchor</em> for the whole performance. 2. <b>Every later part is generated with the anchor as <code>reference</code>.</b> 3. <b>Measure, do not assume.</b> Compute ECAPA cosine similarity of each candidate against the anchor. Reference conditioning improves continuity; it does not guarantee it, and emotional parts drift more than calm ones. 4. Make speaker similarity part of the score you rank assemblies with. Otherwise the ranker will happily pick a beautifully acted part that is a different person.</p>
 <h2>3. When conditioning is not enough: Chatterbox voice conversion</h2>
 <p>If a part still lands below your similarity threshold (~0.55 works), convert it to the anchor's identity instead of throwing it away.</p>
 <p><b>Tool:</b> <a href="https://github.com/LAION-AI/chatterbox-voice-conversion"><code>LAION-AI/chatterbox-voice-conversion</code></a>, zero-shot VC on Resemble AI's Chatterbox S3Gen. Content tokens from the source, a 192-dim CAMPPlus x-vector from the target, flow-matching decoder, HiFi-GAN vocoder, 24 kHz out.</p>
-<p>```python from chatterbox_vc.convert import VoiceConverter</p>
-<p>vc = VoiceConverter(device="cuda")          # ~1.5 GB, ~7 s to load once out = vc.convert(source_audio="part1.wav",   # the part whose identity is wrong target_voice="anchor.wav",  # 6-10 s of the voice you want output_path="part1_fixed.wav")   # returns float32 @ 24 kHz ```</p>
+<pre><code>from chatterbox_vc.convert import VoiceConverter
+
+vc = VoiceConverter(device=&quot;cuda&quot;)          # ~1.5 GB, ~7 s to load once
+out = vc.convert(source_audio=&quot;part1.wav&quot;,   # the part whose identity is wrong
+                 target_voice=&quot;anchor.wav&quot;,  # 6-10 s of the voice you want
+                 output_path=&quot;part1_fixed.wav&quot;)   # returns float32 @ 24 kHz</code></pre>
 <p>Measured on this cluster: model load <b>~7 s</b> on GPU (27 s cold on CPU), conversion of a 6 s clip <b>~20 s on CPU</b>, far faster on GPU. Weights are cached at <code>$HF_HUB_CACHE/models--ResembleAI--chatterbox</code>.</p>
 <p><b>Chain it, do not fan it out.</b> Convert part 1 to part 0's identity, then part 2 to the <em>already-aligned</em> part 0+1 identity, and so on. Converting everything to a moving target reintroduces the drift you are trying to remove.</p>
 <h3>VC is a repair, not a default</h3>
 <p>Conversion can flatten the emotion and add artefacts. <b>Check both sides before keeping it:</b></p>
 <table><tr><th class="">check</th><th class="">keep the conversion only if</th></tr><tr><td class="">ECAPA similarity to the anchor</td><td class="">it went <b>up</b></td></tr><tr><td class=""><b>DNSMOS <code>ovrl_mos</code></b></td><td class="">it did <b>not drop</b> (a tolerance of ~0.15 is reasonable)</td></tr></table>
-<p>``<code>python from speechmos import dnsmos before = dnsmos.run(orig_16k, 16000)[&quot;ovrl_mos&quot;] after  = dnsmos.run(conv_16k, 16000)[&quot;ovrl_mos&quot;] </code>``</p>
+<pre><code>from speechmos import dnsmos
+before = dnsmos.run(orig_16k, 16000)[&quot;ovrl_mos&quot;]
+after  = dnsmos.run(conv_16k, 16000)[&quot;ovrl_mos&quot;]</code></pre>
 <p>A measured example from this stack: a 6 s casting part scored <b>3.345 → 3.358</b> overall MOS across conversion — i.e. no damage, so the conversion was worth keeping. Do not assume that generalises; emotional and non-verbal material is exactly where VC is most likely to cost you.</p>
 <h2>4. Assembling</h2>
 <ul><li><b>Crossfade the seam.</b> A hard concatenation leaves a click that the quality head reliably punishes, which makes every multi-part assembly look worse than it is. 25 ms equal-power is enough.</li><li><b>Rank whole assemblies, not parts.</b> Two individually excellent parts can join badly — a level jump, a tempo jump, or the same emotion twice where the script wanted a turn. Keep the top-K of each part and score every combination.</li><li><b>Score the arc explicitly.</b> A take that holds one emotion beautifully for 30 s is not a dramatic performance. Include a term for whether the dominant emotion actually changes between parts.</li></ul>
@@ -60,7 +71,10 @@ em{color:#a9b6c6}
 <h2>6. Continuation beats reference conditioning</h2>
 <p>Reference conditioning (§2) keeps the <em>timbre</em> roughly right but still starts a <b>fresh utterance</b>, with its own level, register and attack. Listeners hear that as a cut between two recordings even when ECAPA similarity looks acceptable.</p>
 <p>The processor supports <code>mode=&quot;continuation&quot;</code> natively, and it is the stronger fix: the previous audio sits in the <b>assistant turn</b> as tokens the model believes it already produced, so the new tokens are conditioned on real acoustic context rather than a summary of it.</p>
-<p>``<code>python conv = [[proc.build_user_message(text=cumulative_text, instruction=caption, language=&quot;English&quot;, tokens=n_tokens), proc.build_assistant_message(audio_codes_list=[prefix_codes])]] b = proc(conv, mode=&quot;continuation&quot;) </code>``</p>
+<pre><code>conv = [[proc.build_user_message(text=cumulative_text, instruction=caption,
+                                 language=&quot;English&quot;, tokens=n_tokens),
+         proc.build_assistant_message(audio_codes_list=[prefix_codes])]]
+b = proc(conv, mode=&quot;continuation&quot;)</code></pre>
 <p>Four things that are easy to get wrong, all measured:</p>
 <ul><li>The assistant turn takes <b>codec codes <code>[T, n_vq=12]</code>, not a waveform</b>. Passing the waveform raises <code>audio code tensor must have shape [T, 12]</code>.</li><li><code>proc.encode_audios_from_wav([...], 48000)</code> wants a <b>torch tensor</b>, not a numpy array — it calls <code>.unsqueeze()</code> internally.</li><li><code>text</code> must carry the <b>cumulative</b> script (words already spoken <em>and</em> words still to come), so the model knows where in the performance it is.</li><li><b>The decode returns ONLY the continuation, never the prefix.</b> Measured directly: a 9.3 s prefix returned 5.7–12.0 s of new audio. Do <b>not</b> trim the output — blind trimming left 0.2 s stubs, and a "1.2×" guard then mis-trimmed the long candidates.</li></ul>
 <h3>Chain from an anchor, not from the previous part</h3>
@@ -73,7 +87,7 @@ em{color:#a9b6c6}
 <p>Ranking the best of one batch is not enough. If a whole batch drifts, the least-bad take still ships, and the listener hears a second actor mid-scene. Three thresholds, applied in order:</p>
 <table><tr><th class="">threshold</th><th class="">default</th><th class="">action</th></tr><tr><td class=""><code>spk_target</code></td><td class="">0.82</td><td class="">if no candidate reaches it, <b>generate the part again</b> with fresh seeds and merge the pools (up to 2 retries)</td></tr><tr><td class=""><code>vc_threshold</code></td><td class="">0.75</td><td class="">attempt voice conversion as a repair</td></tr><tr><td class=""><code>spk_floor</code></td><td class="">0.68</td><td class="">take is scored ×0.25 — effectively unusable however good the acting</td></tr></table>
 <p>Then, when ranking whole assemblies, score speaker similarity as <b>half mean, half minimum</b>:</p>
-<p>``<code>python spk = 0.5 <em> np.mean(sims) + 0.5 </em> min(sims) </code>``</p>
+<pre><code>spk = 0.5 * np.mean(sims) + 0.5 * min(sims)</code></pre>
 <p>A plain mean let assemblies containing a 0.28 part win on their other three parts. A listener does not average identity across a take.</p>
 <p>Measured over 9 challenges × 3 rounds (56 continuation parts):</p>
 <table><tr><th class="">continuation parts</th><th class="">before</th><th class="">after</th></tr><tr><td class="">mean</td><td class="">0.662</td><td class=""><b>0.784</b></td></tr><tr><td class="">below 0.75</td><td class="">54 %</td><td class=""><b>17 %</b></td></tr><tr><td class="">part 1 → 2 → 3</td><td class="">0.691 → 0.692 → <b>0.280</b></td><td class="">0.777 → 0.787 → <b>0.835</b></td></tr></table>

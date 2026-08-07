@@ -1,0 +1,70 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Acting challenges — what partly worked</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../../index.html">← Manual hub</a></p>
+<h1>What partly worked</h1>
+<p>Things that helped under some conditions and not others. Each entry states the <b>boundary</b> — the condition under which the technique stops paying. Part of the <a href="index.html">acting-challenge tree</a>.</p>
+<hr>
+<h2>1. Declaring <code>tempo_target</code> — the dial is followed, but it saturates</h2>
+<p>The planner declares a target tempo per part on a 0–6 scale and the harness scores the distance to it. Measured over all 83 v7 parts (best kept take of each):</p>
+<table><tr><th class="">asked</th><th class="">n</th><th class="">measured mean</th><th class="">sd</th><th class="">measured min–max</th></tr><tr><td class="">1</td><td class="">3</td><td class=""><b>2.97</b></td><td class="">1.27</td><td class="">1.31 – 4.39</td></tr><tr><td class="">2</td><td class="">29</td><td class=""><b>2.05</b></td><td class="">0.81</td><td class="">0.36 – 3.97</td></tr><tr><td class="">3</td><td class="">39</td><td class=""><b>2.79</b></td><td class="">0.81</td><td class="">0.55 – 4.31</td></tr><tr><td class="">4</td><td class="">12</td><td class=""><b>2.82</b></td><td class="">1.20</td><td class="">0.30 – 4.41</td></tr></table>
+<p>Overall bias <b>−0.18</b>, mean absolute error <b>0.77</b>.</p>
+<p><b>Where it works:</b> 2 lands at 2.05 and 3 lands at 2.79 — those two requests are honoured almost exactly, so the dial is usable for the difference between "unhurried" and "ordinary".</p>
+<p><b>Where it stops:</b> the model's real range is about <b>2–3</b>. Asking for 4 buys nothing over asking for 3 (2.82 vs 2.79), and asking for 1 produces something <em>faster</em> than asking for 2. Above 4 the <code>runaway</code> penalty starts firing on a take you asked for. Get urgency from the delivery cue, the emotion adapter or the chunking — not from a bigger tempo number.</p>
+<h2>2. <code>chunk_target</code> — the better dial, within the same narrow range</h2>
+<table><tr><th class="">asked</th><th class="">n</th><th class="">measured mean</th><th class="">sd</th></tr><tr><td class="">1</td><td class="">11</td><td class=""><b>1.05</b></td><td class="">0.76</td></tr><tr><td class="">2</td><td class="">38</td><td class=""><b>2.14</b></td><td class="">0.75</td></tr><tr><td class="">3</td><td class="">34</td><td class=""><b>2.44</b></td><td class="">0.70</td></tr></table>
+<p>Bias −0.16, MAE 0.65. Requests of 1 and 2 are tracked almost exactly, which makes chunking the <b>most expressive dial available for fear and grief</b>: broken, gasping groups at ordinary tempo read as genuine distress, whereas raising the tempo reads as a caffeinated narrator. X1_horror_scream's best round declares <code>chunk_target 1</code> on the terror part and measures 0.86.</p>
+<p><b>Where it stops:</b> 3 lands at 2.44, so the top of the scale compresses the same way tempo does. The dial is real between 1 and 3 and imaginary above it.</p>
+<h2>3. <code>prosody_turn</code> — only if the turn is actually written</h2>
+<p>Declaring <code>prosody_turn: true</code> tells the harness that a seam is <em>meant</em> to change, so a change of 0.8–3.5 points scores 1.0 and no change is penalised. That is the right shape — but declaring the flag does not create the change.</p>
+<ul><li><b>Worked:</b> X1_horror_scream v7 r3 declares turns on parts 2 and 3 with a tempo shape of 3 → 1 → 4 and a chunk shape of 3 → 1 → 2. Measured: tempo 3.03 → 1.31 → 3.71, chunk 3.01 → 0.86 → 1.62 → <code>pros_join</code> <b>1.000</b>, <code>pros_fit</code> 0.861, the best prosody of any v7 round.</li><li><b>Did not work:</b> X4_ice_water v7 r2 declares turns on parts 2 and 3 while holding <code>tempo_target</code> flat at 3 and stepping <code>chunk_target</code> 3 → 2 → 2 — i.e. it declares a change and asks for almost none. <code>pros_join</code> <b>0.610</b>, <code>pros_fit</code> 0.530, the second-worst prosody in the run.</li></ul>
+<p><b>Boundary:</b> a declared turn must move roughly 1–3 points on at least one of tempo / chunk / dflu. If the plan does not ask for the move, declaring the flag actively costs score.</p>
+<p>Run-level effect of the whole prosody package, v7's 56 seams:</p>
+<table><tr><th class=""></th><th class="">ΔPart</th><th class="">between consecutive parts</th><th class="">mean</th><th class="">median</th></tr><tr><td class="">tempo</td><td class="">0.97</td><td class="">0.80</td><td class="">3.18</td><td class="">12.5 %</td></tr><tr><td class="">chunk</td><td class="">0.92</td><td class="">0.68</td><td class="">2.71</td><td class="">10.7 %</td></tr><tr><td class="">dflu</td><td class="">1.02</td><td class="">0.97</td><td class="">2.64</td><td class="">10.7 %</td></tr></table>
+<h2>4. Voice conversion as a repair</h2>
+<p>Chatterbox S3Gen VC, run only when a candidate falls below <code>vc_threshold</code>, kept only if ECAPA similarity rose <b>and</b> DNSMOS <code>ovrl_mos</code> did not fall by more than 0.15.</p>
+<table><tr><th class="">generation</th><th class=""><code>vc_threshold</code></th><th class="">rounds whose shipped take contains ≥1 converted part</th><th class="">parts converted</th></tr><tr><td class="">v2</td><td class="">0.55</td><td class="">14 / 27</td><td class="">22</td></tr><tr><td class="">v5</td><td class="">0.55</td><td class="">4 / 27</td><td class="">7</td></tr><tr><td class="">v7</td><td class="">0.75</td><td class="">14 / 27</td><td class="">20</td></tr></table>
+<p><b>Where it works:</b> on ordinary spoken parts it is cheap insurance. The DNSMOS guard means a conversion that damages the take is discarded automatically, and a measured example from this stack went 3.345 → 3.358 overall MOS across conversion, i.e. no damage.</p>
+<p><b>Where it stops:</b> it did not rescue the failures that mattered. v2 shipped 22 converted parts and still ended with 23 % of later parts below 0.55 similarity; X2_chainsaw's identity never recovered in any generation despite the repair being available. Conversion can only align a take that has content to align — a 0.1 s stub or a near-silent scream has nothing for it to work on. And at <code>vc_threshold</code> 0.55, most of the drifting parts were never even offered to it: <b>54 % of v5's continuation parts landed below 0.75 and most never triggered a repair.</b> Raising the threshold to 0.75 is what made the repair reachable.</p>
+<h2>5. Stacking several adapters on one part</h2>
+<p><b>Where it works:</b> the "mixed feeling" briefs. X4_ice_water's brief asks for shock, draining fright, amused delight and relief to be <em>audible at once</em>; its best part carries <code>Relief 0.70 + Amusement 0.60 + Chuckle 0.50</code> simultaneously and it is the pattern that produced the corpus's highest genuineness measurements. C2_biggest_fear crossfades <code>Fear 0.5 → Fear 0.4 + Relief 0.4 → Relief 0.55 + Elation 0.65</code> so nothing is switched off at a seam.</p>
+<p><b>Where it stops:</b> on <b>non-verbal</b> parts. Restricted to spoken continuation parts, the number of adapters on a part correlates <b>+0.012</b> with speaker similarity — no effect at all:</p>
+<table><tr><th class="">adapters on the part</th><th class="">n (spoken)</th><th class="">mean spk_sim</th></tr><tr><td class="">1</td><td class="">23</td><td class="">0.800</td></tr><tr><td class="">2</td><td class="">14</td><td class="">0.770</td></tr><tr><td class="">3</td><td class="">12</td><td class="">0.802</td></tr><tr><td class="">4</td><td class="">1</td><td class="">0.847</td></tr></table>
+<p>But the two 5-adapter parts in the corpus — both X2_chainsaw non-verbal agony parts stacking <code>Distress + Fear + Pain + Sob + Scream + Whimper + Painful Moan</code> at 0.5 each — averaged <b>0.561</b>. The apparent "stacking hurts identity" correlation of −0.42 over all parts is entirely those two parts, and they are non-verbal, where ECAPA is unreliable anyway. <b>Boundary: stack freely on spoken parts; on non-verbal parts you are measuring nothing and the stack is a guess.</b></p>
+<h2>6. Raising temperature above 1.0</h2>
+<table><tr><th class="">temperature</th><th class="">n (spoken continuation parts)</th><th class="">mean spk_sim</th></tr><tr><td class="">1.00</td><td class="">36</td><td class=""><b>0.817</b></td></tr><tr><td class="">1.05</td><td class="">9</td><td class="">0.775</td></tr><tr><td class="">1.10</td><td class="">1</td><td class="">0.827</td></tr><tr><td class="">1.15</td><td class="">1</td><td class="">0.762</td></tr><tr><td class="">1.20</td><td class="">2</td><td class="">0.756</td></tr></table>
+<p>Within spoken parts the correlation is −0.28, but that is dominated by a single part at temperature 1.08 that landed at 0.169. <b>Do not treat this as established.</b> The defensible statement is: 1.0 is the well-sampled setting (36 of 50 spoken continuation parts), everything above it is n ≤ 9, and there is no evidence in this corpus that raising temperature on a <em>spoken</em> part buys anything. The model's own manual recommends 1.3–1.5 for pure non-verbal parts, and the corpus contains only four such parts, all in X2_chainsaw, all of which failed for other reasons.</p>
+<h2>7. Breaking the burst-dose rule</h2>
+<p>The burst chapter's rule is that the emotion adapter must sit <b>at or below</b> the burst adapter's dose, because they compete. Across the corpus, 16 of the 127 parts that carried both broke it.</p>
+<p><b>It sometimes works anyway.</b> X1_horror_scream v7 r3 — the best-measured X1 assembly in the corpus, WER 0.052 — stacks <code>Fear 0.70</code> above <code>Scream 0.50</code> on its scream part, and that part measured <code>emo_peak</code> 3.829, the highest single-part emotion measurement in v7.</p>
+<p><b>Boundary:</b> the rule is about <em>burst presence</em>, and that is not what X1's part needed. Its scream is written as words (<code>&quot;No!&quot; (Scream) &quot;No, no, no! Get away from him!&quot;</code>) rather than as a non-verbal event, so the part does not depend on the locator finding a burst. If you need the burst to <em>occur</em>, follow the rule; if the burst is written into the line as shouted words, the emotion adapter can lead.</p>
+<h2>8. Four parts instead of three</h2>
+<table><tr><th class="">parts</th><th class="">rounds</th><th class="">agent score</th><th class="">supervisor mean</th><th class="">WER</th><th class="">duration</th></tr><tr><td class="">3</td><td class="">88</td><td class="">0.732</td><td class="">6.86</td><td class="">0.163</td><td class="">28.8 s</td></tr><tr><td class="">4</td><td class="">20</td><td class="">0.741</td><td class="">6.84</td><td class="">0.150</td><td class="">33.8 s</td></tr></table>
+<p>No difference in quality; four parts just runs 5 s longer and costs another generation pass. The planner chose four parts in 20 of 108 rounds and it was never the deciding factor.</p>
+</body></html>

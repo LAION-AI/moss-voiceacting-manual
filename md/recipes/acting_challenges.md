@@ -8,6 +8,25 @@ The shape of the task: a ~30 s performance with a dramatic arc, written as **2�
 generated **best-of-16**, assembled as the best *combination* across parts, ranked by the local
 sensor stack only. A supervisor listens afterwards and gives feedback for the next round.
 
+> **This page is the summary. The full record is the [acting-challenge tree](acting/index.html).**
+> Everything below is true and is the fastest way in; the tree has the per-challenge recipes with
+> verbatim captions, the cross-version numbers, the scoring formulas each generation actually used,
+> and the failures in full.
+>
+> | | |
+> |---|---|
+> | [Map & headline findings](acting/index.html) | what was run, in what order, and the five findings that are not on this page |
+> | [**Per challenge**](acting/per_challenge.html) | for each of the nine briefs: every round ever run, the recipe worth re-running, its full verbatim caption / adapters / doses / sampling, and why it won |
+> | [Version history](acting/versions.html) | generation by generation, with the cross-version tables |
+> | [What worked](acting/what_worked.html) · [partly](acting/what_partly_worked.html) · [failed](acting/what_failed.html) | with the measurement behind each claim, and the boundary where it stops paying |
+> | [Metrics](acting/metrics.html) | the exact formulas, the thresholds, and the three scoring terms that carry no information |
+> | [Every prompt](acting/prompts.html) | all 351 part-captions, verbatim |
+> | [Edge-case swarm](acting/swarm_edgecases.html) | `T0001`–`T0008`: the recipes, and why half the reports should be read sceptically |
+>
+> Three corrections the tree makes to this page: the "seven generations" are four complete runs plus
+> three aborted ones; **`out_v5_real`'s results are not paired with its plans** and must not be used;
+> and the supervisor rankings from v1/v2/v5 measure presentation order, not quality.
+
 ---
 
 ## 0. The one-page checklist

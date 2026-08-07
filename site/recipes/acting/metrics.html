@@ -1,0 +1,127 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Acting challenges — metrics</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../../index.html">← Manual hub</a></p>
+<h1>Metrics — what each number means, and which ones are useless</h1>
+<p>The casting harness scores everything with a local sensor stack and never lets the LLM supervisor touch the ranking. This page documents what each sensor measures, the exact formula each generation used, the thresholds, and — the important part — which terms turned out to carry no information. Part of the <a href="index.html">acting-challenge tree</a>.</p>
+<hr>
+<h2>1. The sensors</h2>
+<table><tr><th class="">name</th><th class="">range</th><th class="">source</th><th class="">what it measures</th></tr><tr><td class=""><code>genu</code></td><td class="">0–6</td><td class=""><code>pp_scores_fast.FastScorer</code> → <code>genuineness_0_6</code></td><td class="">does the emotion sound felt rather than performed</td></tr><tr><td class=""><code>blend</code></td><td class="">0–10</td><td class=""><code>blend_0_10</code></td><td class="">does a vocal burst grow out of the speech or sit on top of it</td></tr><tr><td class=""><code>qual</code></td><td class="">~0–5</td><td class="">mean of the <code>quality</code> heads</td><td class="">production quality / cleanliness</td></tr><tr><td class=""><code>emo_peak</code></td><td class="">unbounded, ~0–5</td><td class="">EmoNet score of the part's declared <code>targets</code>, or the global argmax if none of them exist</td><td class="">how strongly the target emotion registers</td></tr><tr><td class=""><code>emo_argmax</code></td><td class="">label</td><td class="">EmoNet</td><td class="">the dominant emotion</td></tr><tr><td class=""><code>wer</code></td><td class="">0–1</td><td class=""><code>openai/whisper-small</code> + <code>jiwer</code>, against the part's <code>text</code></td><td class="">intelligibility. <b>Forced to 0.0 when the part is <code>nonverbal</code></b></td></tr><tr><td class=""><code>dur</code></td><td class="">s</td><td class="">waveform length</td><td class=""></td></tr><tr><td class=""><code>spk_sim</code></td><td class="">−1…1</td><td class=""><code>speechbrain/spkrec-ecapa-voxceleb</code> cosine against the anchor</td><td class="">is this the same actor</td></tr><tr><td class=""><code>n_bursts</code></td><td class="">count</td><td class=""><code>Judge.loc.spans()</code></td><td class="">located non-speech burst events</td></tr><tr><td class=""><code>tempo</code> / <code>chunk</code> / <code>dflu</code> / <code>vflx</code></td><td class="">0–6</td><td class="">VoiceNet <code>TEMP</code> / <code>CHNK</code> / <code>DFLU</code> / <code>VFLX</code> continuous head</td><td class="">pace, breath-group length, disfluency, flexibility (v7 only)</td></tr><tr><td class=""><code>wps</code></td><td class="">words/s</td><td class="">ASR word count ÷ duration</td><td class="">arithmetic cross-check on <code>tempo</code> (v7 only)</td></tr><tr><td class=""><code>narration</code></td><td class="">≈ −3…3</td><td class=""><code>½(S_NARR + S_NEWS) − ½(S_DRAM + S_CONV)</code></td><td class="">positive = reading it out instead of acting it (v7 only)</td></tr><tr><td class=""><code>edge_bursts</code></td><td class="">count</td><td class="">burst spans overlapping the first/last 0.45 s</td><td class="">bursts that will land on a seam (v7 only)</td></tr><tr><td class=""><code>burst_db</code></td><td class="">dB</td><td class="">loudest burst span RMS relative to speech-active RMS</td><td class="">a burst &gt;6 dB over the speaker reads as a splice (v7 only)</td></tr><tr><td class=""><code>dnsmos</code></td><td class="">~1–5</td><td class=""><code>speechmos.dnsmos</code> <code>ovrl_mos</code></td><td class="">used <b>only</b> to decide whether to keep a voice conversion</td></tr></table>
+<p><code>active_rms</code> is taken over the loudest 60 % of 20 ms frames, not the whole clip, because plain RMS is dominated by how much silence a take happens to contain.</p>
+<hr>
+<h2>2. The assembly score, per generation — verbatim</h2>
+<p>The weights below for v1 and v7 were <b>recovered by least squares from the shipped assemblies</b> (135 per generation, residual &lt; 0.0011), because the source files on disk have moved on: <code>actworker.py</code> now contains a rewritten <code>arc</code> term that no v1/v2/v5 run ever used, and <code>actworker_v7.py</code> was edited at 23:53 on 08-07 — after <code>out_v7</code> finished — and now contains the <b>v8</b> formula. Read the formulas from here, not from the source. v2 and v5 reproduce the source exactly (residual 0.0002).</p>
+<p><b>v1</b> — no speaker term at all:</p>
+<pre><code>core = 0.28·(genu/6) + 0.22·min(peak,1) + 0.20·arc + 0.14·(blend/10)
+     + 0.10·qual + 0.06·dur_fit
+score = core · (1 − min(wer,1))</code></pre>
+<p><b>v2 and v5</b> — speaker similarity becomes a first-class term:</p>
+<pre><code>spk  = mean over parts of spk_sim
+core = 0.24·(genu/6) + 0.18·min(peak,1) + 0.16·arc + 0.20·spk + 0.10·(blend/10)
+     + 0.07·qual + 0.05·dur_fit
+score = core · (1 − min(wer,1))</code></pre>
+<p><b>v7</b> — prosody added, runaway made multiplicative, speaker made worst-case-sensitive:</p>
+<pre><code>spk  = 0.5·mean(spk_sim) + 0.5·min(spk_sim)
+pros = 0.4·prosody_fit + 0.6·prosody_join
+core = 0.20·(genu/6) + 0.15·min(peak,1) + 0.14·arc + 0.22·spk + 0.08·(blend/10)
+     + 0.05·qual + 0.04·dur_fit + 0.12·pros
+score = core · (1 − min(wer,1)) · (1 − 0.35·runaway)</code></pre>
+<p><b>v8 (currently running, for reference)</b> — blend up, three further multiplicative penalties:</p>
+<pre><code>core = 0.18·(genu/6) + 0.14·min(peak,1) + 0.13·arc + 0.21·spk + 0.12·(blend/10)
+     + 0.05·qual + 0.04·dur_fit + 0.13·pros
+score = core · (1 − wer) · (1 − 0.35·runaway) · (1 − 0.12·min(edge_bursts,2))
+      · (1 − 0.12·clip(narration/2,0,1)) · (1 − 0.12·clip((burst_db−6)/6,0,1))</code></pre>
+<p>Common to all: <code>dur_fit = max(0, 1 − |dur − target_dur| / target_dur)</code> with <code>target_dur = 30</code>.</p>
+<h3>Candidate ranking (which 4 takes of the 16 are kept)</h3>
+<p>v1 / v2 / v5, from <code>actworker.py</code>:</p>
+<pre><code>sp     = spk_sim (1.0 if nan)
+base_s = (genu/6·0.40 + min(peak,1)·0.25 + qual·0.10 + sp·0.25) · (1 − wer)
+score  = base_s · (0.25 if sp &lt; spk_floor else 1.0)</code></pre>
+<p>v7 — the two weights below are quoted from a traceback emitted by the running worker, the rest of the v7 candidate formula is not recoverable from the artifacts:</p>
+<pre><code>base_s = (genu/6·0.34 + min(peak,1)·0.22 + … ) · (1 − wer)
+score  = base_s · (0.25 if sp &lt; floor) · (1 − 0.35·runaway) · edge_pen · narr_pen · loud_pen</code></pre>
+<p>and, critically, <b>v7's candidate ranking contains no <code>blend</code> term at all</b> — the v8 source says so in a comment, and the consequence is in §5 below. v8 adds <code>blend/10·0.11</code> and <code>prosody_fit·0.10</code>.</p>
+<h3>Thresholds</h3>
+<table><tr><th class="">knob</th><th class="">v1</th><th class="">v2 / v5</th><th class="">v7</th><th class="">what happens</th></tr><tr><td class=""><code>spk_floor</code></td><td class="">—</td><td class="">0.60 (default)</td><td class=""><b>0.68</b></td><td class="">v2/v5: score × 0.25. v7: the take is <b>excluded from ranking</b> unless nothing in the batch clears the floor</td></tr><tr><td class=""><code>spk_target</code></td><td class="">—</td><td class="">—</td><td class=""><b>0.82</b></td><td class="">v7 only: if the take that would be <em>kept</em> is below this, regenerate the part with a fresh seed, up to <code>spk_retries</code> = 2 extra batches, then rank the merged pool</td></tr><tr><td class=""><code>vc_threshold</code></td><td class="">—</td><td class=""><b>0.55</b></td><td class=""><b>0.75</b></td><td class="">run Chatterbox S3Gen voice conversion on the candidate; keep it only if ECAPA similarity <b>rose</b> and DNSMOS did not fall by more than 0.15</td></tr><tr><td class=""><code>WPS_CAP</code></td><td class="">—</td><td class="">—</td><td class=""><b>4.0</b></td><td class="">above this word rate, <code>runaway</code> starts accumulating</td></tr><tr><td class="">tempo runaway</td><td class="">—</td><td class="">—</td><td class="">measured &gt; 5.0 with <code>tempo_target</code> &lt; 5</td><td class="">second <code>runaway</code> trigger</td></tr><tr><td class=""><code>topk</code> kept per part</td><td class="">4</td><td class="">4</td><td class="">4</td><td class="">assemblies = every combination of kept parts, capped at 256</td></tr><tr><td class="">candidates per part</td><td class="">16</td><td class="">16</td><td class="">16 (48 after 2 resamples)</td><td class=""></td></tr><tr><td class="">crossfade</td><td class="">25 ms equal-power</td><td class="">same</td><td class="">same</td><td class=""></td></tr><tr><td class="">level match</td><td class="">to part 0's <code>active_rms</code>, ±12 dB max gain</td><td class="">same</td><td class="">same</td><td class=""></td></tr></table>
+<hr>
+<h2>3. The finding that matters: the score is a WER detector</h2>
+<p>Decomposing each generation's score into its terms across all 135 shipped assemblies. "Mean contribution" is <code>weight × value</code>; "share" is that as a fraction of the mean score.</p>
+<p><b>v2 / v5</b> (mean score 0.745):</p>
+<table><tr><th class="">term</th><th class="">weight</th><th class="">mean contribution</th><th class="">sd</th><th class="">share of score</th><th class="">corr. with final score</th></tr><tr><td class=""><code>(1 − wer)</code> multiplier</td><td class="">×</td><td class="">0.850</td><td class="">0.115</td><td class="">—</td><td class=""><b>+0.975</b></td></tr><tr><td class=""><code>qual</code></td><td class="">0.07</td><td class="">0.237</td><td class="">0.011</td><td class="">32 %</td><td class="">+0.825</td></tr><tr><td class=""><code>spk</code></td><td class="">0.20</td><td class="">0.153</td><td class="">0.023</td><td class="">21 %</td><td class="">+0.879</td></tr><tr><td class=""><code>peak</code></td><td class="">0.18</td><td class="">0.180</td><td class=""><b>0.000</b></td><td class="">24 %</td><td class="">undefined (constant)</td></tr><tr><td class=""><code>arc</code></td><td class="">0.16</td><td class="">0.154</td><td class="">0.011</td><td class="">21 %</td><td class="">+0.283</td></tr><tr><td class=""><code>genu</code></td><td class="">0.24</td><td class="">0.061</td><td class="">0.017</td><td class="">8 %</td><td class=""><b>+0.005</b></td></tr><tr><td class=""><code>blend</code></td><td class="">0.10</td><td class="">0.043</td><td class="">0.018</td><td class="">6 %</td><td class="">+0.648</td></tr><tr><td class=""><code>dur_fit</code></td><td class="">0.05</td><td class="">0.043</td><td class="">0.006</td><td class="">6 %</td><td class="">+0.141</td></tr></table>
+<p><b>v7</b> (mean score 0.694):</p>
+<table><tr><th class="">term</th><th class="">weight</th><th class="">mean contribution</th><th class="">sd</th><th class="">share of score</th><th class="">corr. with final score</th></tr><tr><td class=""><code>(1 − wer)</code> multiplier</td><td class="">×</td><td class="">0.861</td><td class="">0.130</td><td class="">—</td><td class=""><b>+0.908</b></td></tr><tr><td class=""><code>qual</code></td><td class="">0.05</td><td class="">0.170</td><td class="">0.007</td><td class="">25 %</td><td class="">−0.205</td></tr><tr><td class=""><code>spk</code></td><td class="">0.22</td><td class="">0.178</td><td class="">0.021</td><td class="">26 %</td><td class="">+0.344</td></tr><tr><td class=""><code>peak</code></td><td class="">0.15</td><td class="">0.144</td><td class="">0.021</td><td class="">21 %</td><td class="">+0.077</td></tr><tr><td class=""><code>arc</code></td><td class="">0.14</td><td class="">0.131</td><td class="">0.015</td><td class="">19 %</td><td class="">+0.354</td></tr><tr><td class=""><code>pros</code></td><td class="">0.12</td><td class="">0.088</td><td class="">0.013</td><td class="">13 %</td><td class="">−0.014</td></tr><tr><td class=""><code>genu</code></td><td class="">0.20</td><td class="">0.051</td><td class="">0.019</td><td class="">7 %</td><td class=""><b>+0.027</b></td></tr><tr><td class=""><code>blend</code></td><td class="">0.08</td><td class="">0.032</td><td class="">0.012</td><td class="">5 %</td><td class="">+0.228</td></tr><tr><td class=""><code>dur_fit</code></td><td class="">0.04</td><td class="">0.031</td><td class="">0.009</td><td class="">5 %</td><td class="">+0.336</td></tr></table>
+<p>v1: <code>(1 − wer)</code> correlates <b>+0.973</b>, <code>genu</code> <b>−0.052</b>.</p>
+<blockquote>Eight carefully weighted terms, and the <code>(1 − WER)</code> multiplier explains almost all of the variance in every generation. <b>Genuineness — the largest single weight in v1, v2 and v5 — has essentially zero correlation with the score it is supposed to dominate</b>, because its contribution varies by ±0.02 while the WER multiplier varies by ±0.13.</blockquote>
+<p>The high correlations of <code>qual</code> and <code>spk</code> are partly the same effect: an unintelligible take is usually also a low-quality, drifting take, so those terms co-vary with WER. The honest reading is: <b>the casting score ranks assemblies by intelligibility and speaker continuity, and is blind to almost everything else it claims to measure.</b></p>
+<p>Consequence for anyone re-running this: if you want the ranker to select for acting rather than for diction, you must either normalise the terms so their <em>variances</em> are comparable, or drop the multiplicative WER form for a threshold ("reject above 0.35, then ignore").</p>
+<hr>
+<h2>4. Metrics that are useless, and why</h2>
+<h3><code>arc</code> — the original label-flip version</h3>
+<p>The v1/v2/v5 <code>arc</code> term counted whether the argmax EmoNet <b>label</b> changed between consecutive parts. Over 405 shipped assemblies it took exactly <b>three distinct values ever</b>:</p>
+<table><tr><th class="">value</th><th class="">count</th><th class="">share</th></tr><tr><td class="">1.000</td><td class="">326</td><td class="">80.5 %</td></tr><tr><td class="">0.875</td><td class="">20</td><td class="">4.9 %</td></tr><tr><td class="">0.833</td><td class="">59</td><td class="">14.6 %</td></tr></table>
+<p>On the 81 top-ranked assemblies it is 1.000 in <b>84 %</b> of cases; on v1's 27 top-1 assemblies the mean is <b>0.977 with 85 % at exactly 1.0</b> — while a listener reported hearing no arc at all. A label can flip between neighbouring emotions with no audible change, so the metric fired on almost everything. It carried 0.16–0.20 of the weight and 21–27 % of the score as an essentially constant offset.</p>
+<h3><code>arc</code> — the continuous replacement, in v7</h3>
+<pre><code>profile_move = mean over consecutive parts of (1 − cosine(EmoNet profile_a, profile_b))
+swing        = max(emo_peak) − min(emo_peak) over parts
+arc          = clip(0.6·min(profile_move/0.35, 1) + 0.4·min(swing/1.5, 1), 0, 1)</code></pre>
+<p>Better, but <b>still saturated</b>: mean 0.934, and <b>52 %</b> of v7 assemblies are still at exactly 1.000 (v1/v2/v5: 78–89 %). The correlation with the final score rose from +0.02/+0.10 to +0.354, so it is now doing <em>something</em> — but a metric that is at its ceiling on half the population cannot discriminate the top half of the distribution, which is exactly where casting decisions are made. The 0.35 and 1.5 normalisers are too small.</p>
+<h3><code>min(emo_peak, 1)</code> — dead by clipping</h3>
+<p><code>emo_peak</code> has a corpus mean of <b>2.01</b> and the score term is <code>min(peak, 1)</code>. Result:</p>
+<table><tr><th class="">generation</th><th class="">assemblies at the cap</th></tr><tr><td class="">v1</td><td class="">95.6 %</td></tr><tr><td class="">v2</td><td class=""><b>100 %</b></td></tr><tr><td class="">v5</td><td class="">93.3 %</td></tr><tr><td class="">v7</td><td class="">80.7 %</td></tr></table>
+<p>In v2 the "emotional intensity" term is a literal constant (sd 0.0000, see §3). The clip was presumably meant to stop one runaway part dominating; instead it removed the term. If you want emotional intensity in the score, clip at ~3 or use a soft saturation.</p>
+<h3><code>qual</code> — an offset, not a discriminator</h3>
+<p><code>qual</code> is the <b>unnormalised</b> mean of the quality heads: mean 3.338, sd 0.213, range 2.56–3.61 over 540 assemblies. Every other term is divided into 0–1 (<code>genu/6</code>, <code>blend/10</code>, <code>spk</code>, <code>arc</code>) but <code>qual</code> is not, so a weight of 0.07 buys a contribution of <b>0.234</b> — a third of a typical score — that barely moves. Two side effects:</p>
+<ul><li>the "core" is <b>not bounded by 1</b>: two v1 assemblies scored above 1.0, the highest being <b>1.0093</b>. A score you cannot compare to 1 is a score nobody can calibrate against;</li><li>the ranking is effectively over the remaining terms with a constant added.</li></ul>
+<h3><code>n_bursts</code></h3>
+<p>Counted and stored, never used in any score in v1–v7. v8 uses only the <em>edge</em> subset.</p>
+<h3>The burst classifier's <code>identity</code></h3>
+<p>Not part of the casting harness, but relevant if you extend it: on the <code>VB-control</code> grid the burst classifier scored <code>identity</code> <b>0.000 on every one of the 32 cells</b> where bursts were plainly audible, with a mean target probability of 0.0055. <b>Locator span timing is reliable; the class label is not.</b> Score burst <em>presence</em>, and judge identity by listening.</p>
+<hr>
+<h2>5. Two ways the score actively selected against what it wanted</h2>
+<p><b>Blending.</b> In v1–v7 <code>blend</code> had weight 0.00 in the <em>candidate</em> ranker and 0.08–0.14 in the assembly score, while <code>genu</code> carried 0.34–0.40 per candidate. Pooled over 540 assemblies <code>corr(genu, blend)</code> is −0.044, and within v7 it is <b>−0.207</b>. So the candidate ranker, which is where takes are actually thrown away, was mildly selecting <em>against</em> clean burst blending. Measured consequence: <b>23.1 %</b> of shipped top-1 assemblies (and 24.6 % of all top-5) score below 3/10 on blending. v8 gives blend 0.11 per candidate and 0.12 in the assembly.</p>
+<p><b>Non-verbal parts get the multiplier free.</b> <code>sense()</code> sets <code>wer = 0.0</code> unconditionally when a part is marked <code>nonverbal</code>, on the reasonable ground that a scream has no words to get right. But since the assembly score is essentially <code>(1 − WER) × constant</code> (§3), a <code>nonverbal</code> part contributes a perfect intelligibility score by construction. An X2 assembly with two of three parts non-verbal is being scored on one third of its content, which is how a chainsaw round posted WER 0.086 while its middle part transcribed as the single word "you".</p>
+<hr>
+<h2>6. Prosody terms (v7)</h2>
+<pre><code>prosody_fit(part)   = 1 − mean over {tempo, chunk} of min(|measured − target| / 2, 1)
+runaway(part)       = min( max(0,(wps − 4.0)/1.5) + max(0,(tempo − 5)/1) if not declared , 1 )
+prosody_join(a,b)   per dim in {tempo (tol 0.8), chunk (tol 0.8), dflu (tol 0.8)}:
+      prosody_turn declared:  d &lt; 0.8      → d/0.8·0.6      (asked for a change, didn&#x27;t move)
+                              0.8 ≤ d ≤ 3.5 → 1.0
+                              d &gt; 3.5      → max(0, 1 − (d−3.5)/2)   (lurched)
+      not declared:           max(0, 1 − max(0, d − tol)/2)
+pros = 0.4·mean(prosody_fit) + 0.6·mean(prosody_join)</code></pre>
+<p>Measured over v7's 27 rounds / 83 parts: <code>pros</code> 0.754 mean, <code>pros_join</code> 0.840, <code>pros_fit</code> <b>0.624</b>, <code>runaway</code> 0.061. The low <code>pros_fit</code> is mostly the model's range, not disobedience — see the saturating tempo dial in <a href="what_partly_worked.html#1">what partly worked</a> — so do not tune the planner against it.</p>
+<p><code>edge_bursts</code>, <code>narration</code> and <code>burst_db</code> are computed by the v7 worker but were <b>not</b> written into <code>parts_run[].best</code> in the shipped <code>out_v7</code> artifacts (that field was added later, for v8), so there is no v7 measurement of them in this corpus. Their multipliers are v8-only.</p>
+<hr>
+<h2>7. The supervisor's numbers</h2>
+<p>The Gemini supervisor gives each of the five presented takes a 0–10 score, an ordering, and two sentences of feedback. Its distribution over 540 take-scores:</p>
+<table><tr><th class="">score</th><th class="">2</th><th class="">3</th><th class="">4</th><th class="">5</th><th class="">6</th><th class="">7</th><th class="">8</th><th class="">9</th><th class="">10</th></tr><tr><td class="">count</td><td class="">3</td><td class="">3</td><td class="">29</td><td class="">72</td><td class="">109</td><td class="">126</td><td class="">113</td><td class="">78</td><td class="">7</td></tr></table>
+<p>Compressed into 5–9, as an LLM judge on a 0–10 scale usually is. <code>sup_best</code> per round is 8 or 9 in almost every round and therefore carries little information; <b><code>sup_mean</code> is the usable summary</b>, and even it should be read with <a href="what_failed.html#5">what failed §5</a> in mind.</p>
+<p><code>agreement_spearman</code> is Spearman's ρ between the agent's ordering (which is always 1,2,3,4,5 by construction) and the supervisor's ranking. Because the agent's ordering is the presentation order, this statistic is <b>only</b> interpretable if the judge has no position bias — which it did not have in v7, and did have in v1/v2/v5.</p>
+</body></html>

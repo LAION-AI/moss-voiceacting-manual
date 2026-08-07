@@ -5,10 +5,14 @@ The manual keeps an agent-readable Markdown mirror of every page. Until now both
 written by hand, which is how they drift apart. This renders `md/**/x.md` -> `site/**/x.html`
 in the existing dark style, so the mirror is generated rather than maintained.
 
-Deliberately a small subset -- headings, tables, lists, blockquotes, hr, inline bold/code/links.
-That is everything the pages actually use. It is not a general Markdown implementation and does
-not try to be: anything it does not recognise passes through as a paragraph, which is visible
-rather than silent.
+Deliberately a small subset -- headings, tables, lists, blockquotes, hr, fenced code blocks, and
+inline bold/code/links. That is everything the pages actually use. It is not a general Markdown
+implementation and does not try to be: anything it does not recognise passes through as a
+paragraph, which is visible rather than silent.
+
+Fenced blocks (``` ... ```) are emitted as <pre>, verbatim and HTML-escaped. Before that existed
+a fence was swallowed by the paragraph rule, which silently reflowed the code onto one line and
+ate the newlines -- fatal for a page whose point is that a caption can be copy-pasted.
 
   python3 tools/md2site.py md/recipes/foo.md site/recipes/foo.html "Page title"
 """
@@ -42,7 +46,10 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}"""
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}"""
 
 INLINE = (
     (re.compile(r"`([^`]+)`"), lambda m: f"<code>{html.escape(m.group(1))}</code>"),
@@ -76,6 +83,18 @@ def render(md):
 
         if not s:
             i += 1
+            continue
+
+        # fenced code block: verbatim, escaped, newlines preserved. Must be tested BEFORE the
+        # paragraph rule, which would otherwise join the lines and destroy the content.
+        if s.startswith("```"):
+            i += 1
+            buf = []
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                buf.append(lines[i])
+                i += 1
+            i += 1                                   # skip the closing fence
+            out.append("<pre><code>" + html.escape("\n".join(buf)) + "</code></pre>")
             continue
 
         # raw HTML passthrough: a line starting with <div/<audio/<table is emitted verbatim, so a

@@ -1,4 +1,4 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>acting_challenges.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Acting challenges: running an autonomous casting agent</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
 padding:30px;max-width:1000px;line-height:1.6}
 a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
 border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
@@ -23,11 +23,15 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Acting challenges: running an autonomous casting agent</h1>
 <p>Everything measured across seven generations of the casting harness (9 challenges × 3 rounds each, ~2,000 generations). Read this before writing an acting plan — most of it was learned the expensive way, and several items are things a listener caught that no metric was watching.</p>
 <p>The shape of the task: a ~30 s performance with a dramatic arc, written as <b>2–4 parts</b>, each generated <b>best-of-16</b>, assembled as the best <em>combination</em> across parts, ranked by the local sensor stack only. A supervisor listens afterwards and gives feedback for the next round.</p>
+<blockquote><b>This page is the summary. The full record is the <a href="acting/index.html">acting-challenge tree</a>.</b> Everything below is true and is the fastest way in; the tree has the per-challenge recipes with verbatim captions, the cross-version numbers, the scoring formulas each generation actually used, and the failures in full.  | | | |---|---| | <a href="acting/index.html">Map &amp; headline findings</a> | what was run, in what order, and the five findings that are not on this page | | <a href="acting/per_challenge.html"><b>Per challenge</b></a> | for each of the nine briefs: every round ever run, the recipe worth re-running, its full verbatim caption / adapters / doses / sampling, and why it won | | <a href="acting/versions.html">Version history</a> | generation by generation, with the cross-version tables | | <a href="acting/what_worked.html">What worked</a> · <a href="acting/what_partly_worked.html">partly</a> · <a href="acting/what_failed.html">failed</a> | with the measurement behind each claim, and the boundary where it stops paying | | <a href="acting/metrics.html">Metrics</a> | the exact formulas, the thresholds, and the three scoring terms that carry no information | | <a href="acting/prompts.html">Every prompt</a> | all 351 part-captions, verbatim | | <a href="acting/swarm_edgecases.html">Edge-case swarm</a> | <code>T0001</code>–<code>T0008</code>: the recipes, and why half the reports should be read sceptically |  Three corrections the tree makes to this page: the "seven generations" are four complete runs plus three aborted ones; <b><code>out_v5_real</code>'s results are not paired with its plans</b> and must not be used; and the supervisor rankings from v1/v2/v5 measure presentation order, not quality.</blockquote>
 <hr>
 <h2>0. The one-page checklist</h2>
 <ul><li>[ ] Part 0 with <b>no</b> reference; its best take becomes the <b>anchor</b></li><li>[ ] Later parts as <b>continuations</b> from <b>anchor + ~4 s tail</b> (§1)</li><li>[ ] <code>GENERAL</code> voice description <b>byte-identical</b> across parts (§2)</li><li>[ ] Seeds unique <b>per task</b>, and several sub-batches per part (§3)</li><li>[ ] Every part <b>starts and ends on a word</b> — bursts go inside the line (§4)</li><li>[ ] Cues written as <b>actions</b>, not tone descriptions (§5)</li><li>[ ] <code>tempo_target</code> / <code>chunk_target</code> declared; <code>prosody_turn</code> only where intended (§6)</li><li>[ ] Non-verbal parts sized by <b>duration</b>, not word count; not gated on speaker similarity (§7)</li><li>[ ] Seams <b>level-matched</b> and crossfaded; assemblies ranked whole (§8)</li></ul>
@@ -45,9 +49,10 @@ em{color:#a9b6c6}
 <p><b>Result:</b> mean 0.662 → <b>0.784</b>; below 0.75 54 % → <b>17 %</b>. On spoken scenes alone, <b>0.816 mean and 0 % below 0.55</b>.</p>
 <h2>3. Seeds must vary per task and per sub-batch</h2>
 <p>A listener noticed that <em>the same vocal burst opened the same part in unrelated challenges</em>. The cause was arithmetic:</p>
-<p>``<code>python seed = 7000 + 100 <em> rnd + 10 </em> pi + 3331 * att      # &amp;lt;-- no task term </code>``</p>
+<pre><code>seed = 7000 + 100 * rnd + 10 * pi + 3331 * att      # &lt;-- no task term</code></pre>
 <p>Every one of nine challenges drew <b>seed 7110</b> for round 1 part 1. And with <code>cands == batch</code> there was only ever one chunk, so <code>torch.manual_seed(seed + i)</code> set <b>one</b> RNG stream per part.</p>
-<p>``<code>python seed = (zlib.crc32(task.encode()) % 100000) <em> 1000 + 7000 + 100</em>rnd + 10<em>pi + 3331</em>att torch.manual_seed(seed + 7919 * (i // batch))       # several sub-batches per part </code>``</p>
+<pre><code>seed = (zlib.crc32(task.encode()) % 100000) * 1000 + 7000 + 100*rnd + 10*pi + 3331*att
+torch.manual_seed(seed + 7919 * (i // batch))       # several sub-batches per part</code></pre>
 <p>Correlated seeds do not just repeat artefacts across conditions — they make <b>best-of-16 explore one neighbourhood</b>, so the selection is far weaker than the candidate count suggests. Keep <code>batch &amp;lt; cands</code> so a part is drawn from several independent streams.</p>
 <h2>4. Never open or close a part with a vocal burst</h2>
 <p>A gasp, throat noise or sigh in the <b>first or last ~0.45 s</b> lands exactly <b>on the join</b> once parts are concatenated, and reads as a glitch rather than as acting. Two defences:</p>
@@ -56,7 +61,7 @@ em{color:#a9b6c6}
 <p>Burst <b>blending</b> (0–10: does the burst grow out of the speech or sit on top of it) had weight <b>0.00</b> in candidate ranking and 0.08 in the assembly score, while genuineness — which correlates <b>−0.21</b> with blending — carried 0.34. The ranker was therefore mildly selecting <em>against</em> clean blending, and <b>24 % of shipped assemblies scored below 3/10</b>. Blending is now 0.11 per candidate and 0.12 in the assembly.</p>
 <h2>5. The narration failure — and how to write around it</h2>
 <p>The most common continuation failure is subtle: the voice stays correct but the model <b>stops acting and reads the remaining words out</b>. It is measurable — VoiceNet's style heads give a narration index:</p>
-<p>``<code> narration = ½(S_NARR + S_NEWS) − ½(S_DRAM + S_CONV)      # positive = reading it out </code>``</p>
+<pre><code>narration = ½(S_NARR + S_NEWS) − ½(S_DRAM + S_CONV)      # positive = reading it out</code></pre>
 <p>The writing lever that matters: <b>make the cue an action the character performs, not a description of a tone.</b> "The sentence collapses halfway and they have to start it again" is a direction; "sad, resigned" is a label, and a label is an invitation to narrate.</p>
 <h2>6. Prosody: smooth, or changed for a stated reason</h2>
 <blockquote>Chunking, disfluency and tempo must <b>either flow smoothly</b> from part to part, <b>or change for a declared reason.</b></blockquote>

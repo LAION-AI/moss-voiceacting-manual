@@ -1,4 +1,4 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>bursts_merging_evaluation.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Vocal bursts, merge doses &amp; how to evaluate a LoRA</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
 padding:30px;max-width:1000px;line-height:1.6}
 a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
 border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
@@ -23,7 +23,10 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Vocal bursts, merge doses &amp; how to evaluate a LoRA</h1>
 <p><em>Measured recipe page, added Aug 2026. Additive — nothing on the emotion, VoiceNet or expressive/NSFW pages is retracted. This adds three things that had not been measured before: how hard to merge a <b>vocal-burst</b> adapter when the burst has to land <b>inside</b> a sentence, what happens when you <b>stack</b> a burst adapter with an emotion adapter, and what a LoRA evaluation has to contain before its numbers mean anything.</em></p>
@@ -55,16 +58,24 @@ em{color:#a9b6c6}
 <hr>
 <h2>0.6 Copy-paste recipe</h2>
 <p>For an agent that wants a specific burst at a specific place <b>and</b> the rest of the line:</p>
-<p>```python</p>
-<h1>1. the tag goes INLINE in the SCRIPT, with real words after it</h1>
-<p>instruction = ('GENERAL: A natural conversational adult voice, genuine unperformed delivery; ' 'clearly amused.\n' 'SCRIPT:\n(amused) "I was just about to leave when" (Chuckle) ' '"and then everything made sense."') text = "I was just about to leave when and then everything made sense."   # words only</p>
-<h1>2. burst adapter at 0.5 -- NOT higher</h1>
-<p>pm.load_adapter("laion/vocal-burst-lora-adapters", subfolder="chuckle", adapter_name="burst") set_dose("burst", 0.5)</p>
-<h1>3. an emotion adapter, if you need one, at or below the burst dose</h1>
-<p>pm.load_adapter("TTS-AGI/moss-emotion-loras-v3", subfolder="Amusement", adapter_name="emo") set_dose("emo", 0.5) pm.base_model.set_adapter(["burst", "emo"])</p>
-<h1>4. generate 5 candidates and KEEP THE ONES THAT HAVE THE BURST</h1>
-<h1>50 % per take -&gt; 5 candidates gives ~97 % that at least one works</h1>
-<p>```</p>
+<pre><code># 1. the tag goes INLINE in the SCRIPT, with real words after it
+instruction = (&#x27;GENERAL: A natural conversational adult voice, genuine unperformed delivery; &#x27;
+               &#x27;clearly amused.\n&#x27;
+               &#x27;SCRIPT:\n(amused) &quot;I was just about to leave when&quot; (Chuckle) &#x27;
+               &#x27;&quot;and then everything made sense.&quot;&#x27;)
+text = &quot;I was just about to leave when and then everything made sense.&quot;   # words only
+
+# 2. burst adapter at 0.5 -- NOT higher
+pm.load_adapter(&quot;laion/vocal-burst-lora-adapters&quot;, subfolder=&quot;chuckle&quot;, adapter_name=&quot;burst&quot;)
+set_dose(&quot;burst&quot;, 0.5)
+
+# 3. an emotion adapter, if you need one, at or below the burst dose
+pm.load_adapter(&quot;TTS-AGI/moss-emotion-loras-v3&quot;, subfolder=&quot;Amusement&quot;, adapter_name=&quot;emo&quot;)
+set_dose(&quot;emo&quot;, 0.5)
+pm.base_model.set_adapter([&quot;burst&quot;, &quot;emo&quot;])
+
+# 4. generate 5 candidates and KEEP THE ONES THAT HAVE THE BURST
+#    50 % per take -&gt; 5 candidates gives ~97 % that at least one works</code></pre>
 <p><b>Do not:</b></p>
 <ul><li>raise the dose to "make sure" the burst happens — that is what eats the sentence;</li><li>put <code>[pause 0.5s]</code> or a silence beat straight after the burst — it triggers early truncation;</li><li>write the instruction to say "then continues speaking" — measured, it makes things slightly <em>worse</em> (§0.5);</li><li>trust the burst <em>classifier's label</em> to verify the result — it cannot name a burst embedded in speech. Check that a span was <b>located</b>, and that the words after it survive an ASR pass.</li></ul>
 <p><b>Verify like this:</b></p>
