@@ -181,6 +181,29 @@ spk = 0.5 * np.mean(sims) + 0.5 * min(sims)
 A plain mean let assemblies containing a 0.28 part win on their other three parts. A listener does
 not average identity across a take.
 
+Measured over 9 challenges × 3 rounds (56 continuation parts):
+
+| continuation parts | before | after |
+|---|--:|--:|
+| mean | 0.662 | **0.784** |
+| below 0.75 | 54 % | **17 %** |
+| part 1 → 2 → 3 | 0.691 → 0.692 → **0.280** | 0.777 → 0.787 → **0.835** |
+
+### Do not apply this gate to non-verbal parts
+
+Splitting the same run by challenge type:
+
+| | n | mean | below 0.55 |
+|---|--:|--:|--:|
+| spoken scenes | 44 | **0.816** | **0 %** |
+| screams / non-verbal agony | 8 | 0.610 | 38 % |
+
+**Every failure left in the run is a non-verbal part.** ECAPA needs voiced, sustained material; a
+1–3 s scream gives it almost none, so a low similarity there partly measures the absence of
+anything to embed rather than a change of speaker. Gating screams at 0.82 burns resamples on parts
+the threshold cannot fix. Watch also for batches where every candidate decodes to empty audio —
+continuing from an empty part poisons the next one (0.367 similarity downstream of one).
+
 ### Prompt for it as well as measure it
 
 Two textual levers, both cheap:
@@ -225,6 +248,29 @@ both halves are scored:
   scores ≤ 0.6, and a lurch beyond ~3 points is penalised too. A move, not a jump.
 - **Runaway** is multiplicative, not a term (`× (1 − 0.35·runaway)`): a take that sprints is
   spoiled, not merely lower-scoring, and must not buy the loss back with genuineness.
+
+### The tempo dial saturates — a bigger number does not buy more tempo
+
+Measured over 77 parts with a declared `tempo_target`:
+
+| asked | measured | n |
+|--:|--:|--:|
+| 1 | 2.97 | 3 |
+| 2 | **2.07** | 26 |
+| 3 | **2.84** | 36 |
+| 4 | 2.82 | 12 |
+
+Overall bias is only **−0.16** with mean absolute error **0.75**, so the plans are being followed.
+But the model's usable range is roughly **2–3 measured**: asking for 4 lands at 2.8, asking for 1
+lands at 3.0. **The extremes compress toward the middle.**
+
+Two consequences:
+
+- A `pros_fit` around 0.58 is *arithmetic*, not disobedience — mean error 0.75 against the ±2
+  tolerance gives ≈0.63. Do not tune the planner to fix it; it is measuring model range.
+- **To get real urgency, reach for a different lever** — the delivery cue, the emotion adapter, or
+  chunking — not a larger integer. Which is the chunking finding below, arrived at from a second
+  direction.
 
 ### Chunking is the dial for fear, not tempo
 
