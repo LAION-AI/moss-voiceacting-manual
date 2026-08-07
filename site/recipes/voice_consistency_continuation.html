@@ -1,0 +1,101 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>voice_consistency_continuation.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>Keeping one voice across clips while the emotion changes</h1>
+<p><b>The problem this page solves.</b> You have a character. You need several clips of them — calm, then frightened, then relieved — and they must sound like <b>the same person</b> throughout, matching a reference recording you already have. Generate the clips independently and they will not: the timbre wanders, the level and register jump, and a listener hears a cut between two recordings, or two different actors.</p>
+<p>This page is self-contained. It assumes only that you are driving <code>laion/moss-tts-local-transformer-4.55b-voice-acting-v2</code> through its <code>AutoProcessor</code>, and nothing about how it was worked out. Everything here is measured over ~2,000 generations; the underlying experiments are in the <a href="acting/index.html">acting-challenge tree</a> if you want the workings.</p>
+<hr>
+<h2>0. The short version</h2>
+<p>1. <b>Fix one anchor clip.</b> Either your reference recording, or generate clip 1 and keep the best take. Every later clip is measured against this one, never against its predecessor. 2. <b>Generate later clips in <code>mode=&quot;continuation&quot;</code></b>, with the assistant turn holding the <b>anchor + ~4 s of the previous clip</b> — not the whole previous clip. 3. <b>Keep the <code>GENERAL</code> voice description byte-identical</b> across clips. Change only the delivery cue and the emotional state. 4. <b>Append a continuity sentence</b> to <code>GENERAL</code> on every continuation clip. 5. <b>Measure ECAPA cosine similarity</b> against the anchor and <em>enforce</em> it: regenerate below 0.82, repair with voice conversion below 0.75, reject below 0.68. 6. <b>Do not apply step 5 to non-verbal clips</b> (screams, sobs, gasps). The metric stops working there.</p>
+<p>Measured effect of doing this versus reference conditioning alone, over 9 scenes × 3 rounds: mean similarity on later clips <b>0.662 → 0.799</b>, share below 0.75 <b>54 % → 22 %</b>, and — the part that matters most — <b>share below 0.55 fell to 0 %</b>. Identity no longer collapses.</p>
+<hr>
+<h2>1. Why plain reference conditioning is not enough</h2>
+<p><code>build_user_message(..., reference=[path])</code> conditions on your reference and gets the <em>timbre</em> roughly right. But it still starts a <b>fresh utterance</b>: its own onset, its own level, its own register. That is what a listener hears as a splice, and it happens at similarity values that look perfectly acceptable on paper.</p>
+<p><code>mode=&quot;continuation&quot;</code> is the stronger tool. It places real audio in the <b>assistant turn</b>, so the model treats it as tokens it already produced and predicts what comes next — inheriting level, register and speaking manner, not just timbre.</p>
+<pre><code>conv = [[
+    proc.build_user_message(text=cumulative_text, instruction=caption,
+                            language=&quot;English&quot;, tokens=n_tokens),
+    proc.build_assistant_message(audio_codes_list=[prefix_codes]),
+]]
+batch = proc(conv, mode=&quot;continuation&quot;)
+out = model.generate(input_ids=batch[&quot;input_ids&quot;].cuda(),
+                     attention_mask=batch[&quot;attention_mask&quot;].cuda(),
+                     max_new_frames=400, do_sample=True,
+                     audio_temperature=1.0, audio_top_p=0.95, audio_top_k=30)</code></pre>
+<h3>Four mechanics that each cost a debugging cycle</h3>
+<table><tr><th class=""></th><th class=""></th></tr><tr><td class="">the assistant turn takes <b>codec codes <code>[T, n_vq=12]</code></b></td><td class="">passing a waveform raises <code>audio code tensor must have shape [T, 12]</code></td></tr><tr><td class=""><code>proc.encode_audios_from_wav([x], 48000)</code> wants a <b>torch tensor</b></td><td class="">a numpy array fails on <code>.unsqueeze()</code></td></tr><tr><td class=""><code>text</code> must be <b>cumulative</b></td><td class="">the words already spoken <em>and</em> the words still to come, so the model knows where in the script it is</td></tr><tr><td class="">the decode returns <b>only the continuation</b></td><td class="">measured: a 9.3 s prefix returned 5.7–12.0 s of <em>new</em> audio. <b>Do not trim the output.</b> Blind trimming left 0.2 s stubs; a "1.2× prefix length" guard then mis-trimmed exactly the good long takes</td></tr></table>
+<p>In continuation mode the <code>reference=</code> slot is ignored — the prompt audio <em>is</em> the conditioning.</p>
+<h2>2. Anchor + tail — do not chain</h2>
+<p>The obvious thing is to feed each clip the whole previous clip. It is measurably wrong, for two separate reasons:</p>
+<table><tr><th class=""></th><th class="">clip 2</th><th class="">clip 3</th><th class="">clip 4</th></tr><tr><td class="">chained from the full previous clip</td><td class="">0.691</td><td class="">0.692</td><td class=""><b>0.280</b></td></tr><tr><td class=""><b>anchor + 4 s tail</b></td><td class="">0.777</td><td class="">0.787</td><td class=""><b>0.835</b></td></tr></table>
+<ul><li><b>Drift compounds.</b> Each clip inherits the previous one's error as well as its voice, so a small wander becomes a different person by clip 4.</li><li><b>A long prefix drags the old emotion forward.</b> Peak emotion fell <b>2.29 → 2.05</b> under full chaining — exactly the opposite of what you want when the point is that the emotion <em>changes</em>.</li></ul>
+<p>So build the prefix from two pieces:</p>
+<pre><code>tail = prev_clip[-int(4.0 * SR):]              # ~4 s of prosodic context
+prefix = np.concatenate([anchor_wav, tail])    # identity that cannot drift, + context</code></pre>
+<p>The anchor supplies an identity that never degrades; the short tail supplies just enough recent context to continue the delivery. <b>Always measure against the anchor</b>, never against the previous clip — otherwise the reference drifts with the audio.</p>
+<h2>3. Getting the emotion to actually change</h2>
+<p>Continuation resists mood change: you are asking the model to continue an utterance <em>and</em> turn it. Three levers, in order of effect.</p>
+<p><b>Write the cue as a CHANGE, not a state.</b> The single most effective textual lever. "The composure finally breaks and it collapses into sobbing" works; "sad" does not. Name what the delivery stops being as well as what it becomes.</p>
+<p><b>Write the cue as an ACTION, not a tone label.</b> The most common continuation failure is that the voice stays right but the model stops acting and simply <b>reads the remaining words out</b>. A tone label ("resigned, quiet") is an invitation to narrate; a physical direction ("the sentence collapses halfway and they have to start it again") is not. This is measurable with the VoiceNet style heads:</p>
+<pre><code>narration_index = ½(S_NARR + S_NEWS) − ½(S_DRAM + S_CONV)     # positive = reading it out</code></pre>
+<p><b>Raise the emotion adapter on the clip that carries the turn.</b> The usable band is <b>0.35–0.75</b>; above ~1.0 genuineness and intelligibility collapse. A clip that has to swing hard sits near the top of the band; an opening clip can sit lower.</p>
+<p>State the emotion the clip moves <em>out of</em> as well as into. A caption that says "moves out of guarded composure and into open grief" outperforms one that only names the destination.</p>
+<h2>4. Prompting for identity — two free levers</h2>
+<p><b>Append a continuity sentence to <code>GENERAL</code></b> on every continuation clip:</p>
+<blockquote><em>"The same speaker from the preceding audio continues without interruption: identical voice, identical person, same microphone and same room — no cut, no new narrator, no change of casting."</em></blockquote>
+<p><b>Keep the <code>GENERAL</code> voice description byte-identical across clips.</b> Describe the person once and repeat that description verbatim; vary only the delivery cue and the emotional state. A <code>GENERAL</code> that re-describes the voice in different words is an invitation to cast a different voice.</p>
+<p>Both cost nothing and both measurably help.</p>
+<h2>5. Enforce identity — do not merely rank it</h2>
+<p>Generating N candidates and keeping the best of one batch is not enough: <b>if the whole batch drifts, the least-bad take still ships.</b> That is precisely how a second actor appears mid-scene.</p>
+<table><tr><th class="">threshold</th><th class="">value</th><th class="">action</th></tr><tr><td class=""><code>spk_target</code></td><td class=""><b>0.82</b></td><td class="">no candidate reaches it → <b>generate the clip again</b> with fresh seeds and merge the candidate pools</td></tr><tr><td class=""><code>vc_threshold</code></td><td class=""><b>0.75</b></td><td class="">attempt voice conversion to the anchor as a repair</td></tr><tr><td class=""><code>spk_floor</code></td><td class=""><b>0.68</b></td><td class="">reject the take outright — exclude it from ranking entirely</td></tr></table>
+<p>Two details that turned out to matter:</p>
+<ul><li><b>Test the take that would actually be kept</b>, not the best similarity available in the batch. Testing the maximum meant a batch containing one good take never resampled, even when ranking then selected a different take 0.3 lower on other criteria.</li><li><b>A penalty is not a floor.</b> Multiplying a sub-floor take's score by 0.25 still let an excellent-sounding take from below the floor win. Exclude them.</li></ul>
+<p>When scoring a whole multi-clip sequence, use <b>½ mean + ½ minimum</b> similarity. A plain mean lets a sequence containing one 0.28 clip win on the strength of the others; a listener does not average identity across a performance.</p>
+<h3>Voice conversion is a repair, not a default</h3>
+<p>Chatterbox VC to the anchor can flatten emotion and add artefacts, so run it only below threshold and **keep it only if similarity rose <em>and</em> DNSMOS did not fall by more than 0.15**.</p>
+<pre><code>conv = voice_converter().convert(src_path, anchor_path)   # float32 @ 24 kHz
+keep = (sim_after &gt; sim_before) and (dnsmos_after &gt;= dnsmos_before - 0.15)</code></pre>
+<h2>6. Seeds — a trap worth knowing about</h2>
+<p>If you generate N candidates per clip, make sure they are genuinely N draws:</p>
+<pre><code>seed = (zlib.crc32(character_id.encode()) % 100000) * 1000 + base + 100*round + 10*clip
+torch.manual_seed(seed + 7919 * (i // batch))     # several sub-batches per clip</code></pre>
+<p>Two failure modes, both observed:</p>
+<ul><li><b>A seed formula with no per-character/per-scene term</b> makes unrelated generations produce the <em>same artefact in the same place</em> — a listener spotted an identical vocal burst opening the same clip position across nine unrelated scenes before any metric did.</li><li><b><code>candidates == batch_size</code></b> means a single RNG stream per clip, so "best of 16" explores one neighbourhood and your selection is far weaker than the candidate count suggests. Keep <code>batch &amp;lt; candidates</code>.</li></ul>
+<h2>7. Joining the clips</h2>
+<ul><li><b>Level-match every clip to the anchor</b> over the loudest ~60 % of frames (a speech-active RMS), then normalise the whole join once. Independent generations vary audibly in loudness and a listener hears that as a badly cut scene.</li><li><b>25 ms equal-power crossfade</b> at each seam; a hard concatenation leaves a click.</li><li><b>Never let a clip open or close on a vocal burst.</b> A gasp or throat noise in the first or last ~0.45 s lands exactly <em>on</em> the join and reads as a glitch. Write each clip to start and end on a word; put bursts inside the line.</li><li><b>Watch burst loudness.</b> A burst more than ~6 dB above the speaker's own active level reads as a splice rather than as acting — unless the clip is <em>meant</em> to be a scream.</li></ul>
+<h2>8. The non-verbal exception</h2>
+<p>Everything in §5 stops working on screams, sobs and non-verbal agony. Measured, splitting the same run by clip type:</p>
+<table><tr><th class=""></th><th class="">n</th><th class="">mean similarity</th><th class="">below 0.55</th></tr><tr><td class="">spoken clips</td><td class="">44</td><td class=""><b>0.816</b></td><td class=""><b>0 %</b></td></tr><tr><td class="">non-verbal clips</td><td class="">8</td><td class="">0.610</td><td class="">38 %</td></tr></table>
+<p><b>Every</b> identity failure left in the corpus is a non-verbal clip. ECAPA needs voiced, sustained material; a 1–3 s scream gives it almost none, so a low number there is substantially measuring <em>the absence of anything to embed</em> rather than a change of speaker. Gating screams at 0.82 burns regenerations on something the threshold cannot fix.</p>
+<p>Two more non-verbal traps:</p>
+<ul><li><b>Size them by duration, not word count.</b> <code>tokens</code> defaults to the word count and a scream's text ("Aaaahh—! Kh—kh—!") has almost none, so the model produces ~5 tokens and stops after 0.3 s. Use <b>~12.5 tokens per intended second</b> and raise <code>max_new_frames</code> to match.</li><li><b>Whole batches sometimes decode to empty audio.</b> Continuing from an empty clip poisons the next one (0.367 similarity downstream of one). Detect an empty batch and regenerate rather than continuing from it.</li></ul>
+<h2>9. Checklist</h2>
+<ul><li>[ ] One <b>anchor</b> fixed up front; all similarity measured against it, never against the previous clip</li><li>[ ] Later clips generated with <code>mode=&quot;continuation&quot;</code>, prefix = <b>anchor + ~4 s tail</b></li><li>[ ] <code>text</code> <b>cumulative</b>; decode <b>not</b> trimmed; prefix passed as <b>codec codes</b> from a <b>torch tensor</b></li><li>[ ] <code>GENERAL</code> voice description <b>byte-identical</b> across clips</li><li>[ ] Continuity sentence appended to every continuation caption</li><li>[ ] Cues written as <b>changes</b> and as <b>actions</b>, never as tone labels</li><li>[ ] Emotion adapter <b>0.35–0.75</b>, nearer the top on the clip that carries the turn</li><li>[ ] Similarity <b>enforced</b>: regenerate &lt; 0.82, VC &lt; 0.75, reject &lt; 0.68; sequence scored ½ mean + ½ min</li><li>[ ] VC kept only if similarity ↑ <b>and</b> DNSMOS not ↓ by &gt; 0.15</li><li>[ ] Seeds vary per character/scene <b>and</b> per sub-batch; <code>batch &amp;lt; candidates</code></li><li>[ ] Clips start and end <b>on a word</b>; bursts inside the line, not louder than ~6 dB over speech</li><li>[ ] Seams <b>level-matched</b> to the anchor and crossfaded</li><li>[ ] Non-verbal clips: sized by duration, <b>not</b> gated on speaker similarity, empty batches retried</li></ul>
+</body></html>

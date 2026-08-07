@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Impatience and Irritability — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Impatience_and_Irritability</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward is WITHOUT any LoRA — the plain BASE prompt wins at 0.543, with the evolved prompt essentially tied (0.539); the baseline already carries meaningful irritability (emo 0.058). Every LoRA merge only costs reward, decreasing monotonically (LoRA50 0.466 to LoRA150 0.421). The LoRAs do crank the target hard (LoRA150 emo 0.279, shift up Anger +2.1, Triumph +1.9), but blend collapses (0.453 to 0.193), quality tanks to 0.282 and WER hits 0.767. If you genuinely need overt anger-tinged irritation, use LoRA50 (emo 0.098, WER still low at 0.200) and accept the blend/quality hit; otherwise stay at BASE.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>neutral prompt, no LoRA</b> → reward <b>0.54</b> (emotion 0.06, WER 0.27).</p>
-<p>``<code> GENERAL: A voice utterly expressing impatience and irritability, a tense, irritable voice, snapping with impatience, on a short fuse, pouring out. SCRIPT: (impatiently, irritable and snappy) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.0, top_p 0.9, top_k 25)</p>
+<pre><code>GENERAL: A voice utterly expressing impatience and irritability, a tense, irritable voice, snapping with impatience, on a short fuse, pouring out.
+SCRIPT:
+(impatiently, irritable and snappy) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.0, top_p 0.9, top_k 25)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Impatience_and_Irritability</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.47</b> (emotion 0.10). Dose: 50% → reward 0.47 (emo 0.10) · 100% → 0.45 (emo 0.17) · 150% → 0.42 (emo 0.28).</p>
 <h2>Conditions</h2>

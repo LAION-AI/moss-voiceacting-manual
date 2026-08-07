@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Infatuation — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Infatuation</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward is WITH the LoRA at 50% (0.616 vs 0.488 for BASE). Note the infatuation target dimension stays essentially zero in every condition (emo ~0.01 — the model cannot score direct infatuation), so the reward win comes entirely from richer vocal-burst blend (0.453 to 0.540), higher genuineness (0.110 to 0.150) and lower WER (0.269 to 0.198), not from any measured emotion. The LoRA colors delivery toward a sexual-lust/longing register (corr Sexual Lust 0.81, Longing 0.51). The trade-off is a quality dip (0.625 to 0.515); higher merges (100/150%) keep the blend but add no emotion and lose reward.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>neutral prompt, no LoRA</b> → reward <b>0.49</b> (emotion -0.00, WER 0.27).</p>
-<p>``<code> GENERAL: A voice to the extreme expressing infatuation, a dreamy, smitten voice, lovestruck and breathless with infatuation, impossible to hide. SCRIPT: (dreamily infatuated, lovestruck) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.1, top_p 0.95, top_k 40)</p>
+<pre><code>GENERAL: A voice to the extreme expressing infatuation, a dreamy, smitten voice, lovestruck and breathless with infatuation, impossible to hide.
+SCRIPT:
+(dreamily infatuated, lovestruck) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.1, top_p 0.95, top_k 40)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Infatuation</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.62</b> (emotion 0.01). Dose: 50% → reward 0.62 (emo 0.01) · 100% → 0.55 (emo -0.00) · 150% → 0.53 (emo 0.02).</p>
 <h2>Conditions</h2>

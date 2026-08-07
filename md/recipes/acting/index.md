@@ -20,6 +20,14 @@ smoke tests, plus an earlier eight-task edge-case swarm and two vocal-burst grid
 | **casting v7** `out_v7` | 08-07 15:15–16:05 | anchor + 4 s tail, identity enforcement, prosody discipline | 27 rounds |
 | v8 | running now | — | — |
 
+> **Two pages added after this tree was first built:**
+> [Does the local reward predict a listener?](reward_vs_listener.html) — the measured correlation
+> between the agent's own composite reward and the Gemini supervisor, per metric, per challenge and
+> per subgroup, and what it means for running this without an external judge.
+> · [Keeping one voice across clips while the emotion changes](../voice_consistency_continuation.html)
+> — the reference/continuation recipe extracted as a standalone guide for any character-consistency
+> task, no acting-challenge context needed.
+
 **Trustworthy plan → result pairs in the corpus: 82** (27 v1 + 27 v2 + 27 v7 + 1 smoke2), plus 9
 round-1 results in `out_v4c_stub` with no supervisor verdict. 27 further rounds exist in
 `out_v5_real` and must be discarded — see [what failed](what_failed.html#1).

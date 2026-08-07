@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Contempt — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Contempt</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward is without any LoRA, use the evolved steering prompt (BASE_P 0.520, just ahead of BASE 0.492); every LoRA merge lowers reward (0.458 to 0.357 to 0.302). The LoRA nudges target emotion up only marginally (0.006 to 0.058) while WER explodes to 0.79 and blend/quality sink. Its worst side-effect is category drift: LoRA50 correlates almost perfectly with Disgust and Sourness (~1.0) and by 150% shifts hard into Anger, Malevolence and Impatience, so it stops sounding like contempt and becomes generic hostility. Note that actual contempt strength stays near zero (0.001) even with the prompt — this emotion is intrinsically hard to elicit, so lean on the prompt's low WER (0.134) and clean genuineness rather than chasing the emo score.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>evolved prompt, no LoRA</b> → reward <b>0.52</b> (emotion 0.00, WER 0.13).</p>
-<p>``<code> GENERAL: A voice to the extreme expressing contempt, a cold, sneering voice, full of contempt and disdain, looking down with scorn, pouring out. SCRIPT: (with cold, sneering contempt) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.1, top_p 0.9, top_k 30)</p>
+<pre><code>GENERAL: A voice to the extreme expressing contempt, a cold, sneering voice, full of contempt and disdain, looking down with scorn, pouring out.
+SCRIPT:
+(with cold, sneering contempt) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.1, top_p 0.9, top_k 30)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Contempt</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.46</b> (emotion 0.01). Dose: 50% → reward 0.46 (emo 0.01) · 100% → 0.36 (emo 0.02) · 150% → 0.30 (emo 0.06).</p>
 <h2>Conditions</h2>

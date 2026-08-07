@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Astonishment Surprise — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Astonishment_Surprise</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward comes without the LoRA — the evolved prompt (BASE_P, 0.496) edges out BASE (0.491) and all LoRA merges (best LoRA is 150% at 0.475). Recommendation: rely on the evolved prompt, which already injects surprise cues (Hope/Enthusiasm +0.36, Interest +0.21); reach for LoRA150 only when you need a stronger emo signal (0.033 to 0.145). The trade-off at 150% is a large intelligibility and quality hit (WER 0.296 to 0.621, quality 0.558 to 0.376). Its key side-effect is that the LoRA leaks surprise into Impatience/Irritability (+1.09) and Anger/Disgust rather than delight, and it suppresses Concentration (-0.66).</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>evolved prompt, no LoRA</b> → reward <b>0.50</b> (emotion 0.03, WER 0.30).</p>
-<p>``<code> GENERAL: A voice unmistakably expressing astonishment surprise, a voice struck with astonishment, gasping, utterly surprised, eyes wide, pouring out. SCRIPT: (gasping, astonished, taken completely by surprise) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.0, top_p 0.95, top_k 25)</p>
+<pre><code>GENERAL: A voice unmistakably expressing astonishment surprise, a voice struck with astonishment, gasping, utterly surprised, eyes wide, pouring out.
+SCRIPT:
+(gasping, astonished, taken completely by surprise) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.0, top_p 0.95, top_k 25)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Astonishment_Surprise</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>150%</b> → reward <b>0.47</b> (emotion 0.14). Dose: 50% → reward 0.45 (emo 0.02) · 100% → 0.39 (emo 0.03) · 150% → 0.47 (emo 0.14).</p>
 <h2>Conditions</h2>

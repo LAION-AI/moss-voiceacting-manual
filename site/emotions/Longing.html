@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Longing — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Longing</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward comes WITH the LoRA at 50% (LoRA50 0.589, vs BASE_P 0.525 and BASE 0.505); higher merges backfire (LoRA100 drops to 0.413). Prompt with the evolved steering text and merge the LoRA at 50% — this lifts target emo modestly (0.016 to 0.060), raises genuineness (0.110 to 0.173) and roughly holds blend (0.469). The trade-off is intelligibility: WER rises from 0.193 (BASE_P) to 0.336, and quality slips to 0.522. The most notable coloring is that longing reads as tender and sorrowful — LoRA50 shifts up Emotional Numbness and Fatigue and correlates ~0.87 with Affection, Distress and Helplessness, so expect a wistful, near-grieving tone rather than hopeful yearning.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>evolved prompt, no LoRA</b> → reward <b>0.53</b> (emotion 0.03, WER 0.19).</p>
-<p>``<code> GENERAL: A voice unmistakably expressing longing, an aching, yearning voice, full of wistful longing, reaching for what is out of reach, with every word. SCRIPT: (with aching, wistful longing) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.05, top_p 0.9, top_k 25)</p>
+<pre><code>GENERAL: A voice unmistakably expressing longing, an aching, yearning voice, full of wistful longing, reaching for what is out of reach, with every word.
+SCRIPT:
+(with aching, wistful longing) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.05, top_p 0.9, top_k 25)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Longing</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.59</b> (emotion 0.06). Dose: 50% → reward 0.59 (emo 0.06) · 100% → 0.41 (emo 0.07) · 150% → 0.50 (emo 0.10).</p>
 <h2>Conditions</h2>

@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Disgust — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Disgust</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward is without a LoRA (plain BASE 0.490, barely ahead of BASE_P 0.468 and LoRA50 0.474), but be aware the actual disgust signal is essentially zero (~0.001-0.003) in all of these — the model does not natively voice disgust. Only LoRA150 makes disgust audible (emo 0.236), at a punishing cost: WER 0.856 and quality down to 0.308. Its side-effect is that it doesn't produce clean disgust but shoves the delivery into Anger and Impatience (shift +1.31/+1.27) plus Fear, so you get an enraged read, not a revolted one. Recommendation: use the prompt for best reward if literal disgust isn't required; if it must be heard, accept LoRA150's near-total intelligibility loss.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>neutral prompt, no LoRA</b> → reward <b>0.49</b> (emotion 0.00, WER 0.27).</p>
-<p>``<code> GENERAL: A voice intensely expressing disgust, a revolted voice, curling with disgust, repulsed and sickened, in every breath. SCRIPT: (with revulsion and disgust, sickened) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.05, top_p 0.95, top_k 30)</p>
+<pre><code>GENERAL: A voice intensely expressing disgust, a revolted voice, curling with disgust, repulsed and sickened, in every breath.
+SCRIPT:
+(with revulsion and disgust, sickened) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.05, top_p 0.95, top_k 30)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Disgust</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.47</b> (emotion 0.00). Dose: 50% → reward 0.47 (emo 0.00) · 100% → 0.40 (emo 0.06) · 150% → 0.44 (emo 0.24).</p>
 <h2>Conditions</h2>

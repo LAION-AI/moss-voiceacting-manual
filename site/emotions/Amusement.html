@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Amusement — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Amusement</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward is essentially a tie between no LoRA (neutral BASE, 0.504) and the LoRA at 150% (0.502); notably the evolved prompt (BASE_P, 0.459) actually hurts here, so prefer the plain base prompt for safe quality. If you need audibly perceptible amusement, only the LoRA delivers it — target-emotion strength climbs from ~0.01 (both no-LoRA conditions) to 0.259 at 150%, driving huge Teasing (+1.56) and Pleasure/Elation shifts. The trade-off is severe: vocal-burst blend collapses (0.453 to 0.175), speech quality drops (0.625 to 0.405) and WER rises (0.269 to 0.472). Its signature side-effect is that it strongly suppresses Concentration (-0.78) and Warmth, trading composure for giddiness.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>neutral prompt, no LoRA</b> → reward <b>0.50</b> (emotion 0.01, WER 0.27).</p>
-<p>``<code> GENERAL: A voice overwhelmingly expressing amusement, a voice bubbling with amusement, on the edge of laughter, playful and delighted, impossible to hide. SCRIPT: (chuckling, highly amused, barely holding back laughter) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.1, top_p 0.95, top_k 30)</p>
+<pre><code>GENERAL: A voice overwhelmingly expressing amusement, a voice bubbling with amusement, on the edge of laughter, playful and delighted, impossible to hide.
+SCRIPT:
+(chuckling, highly amused, barely holding back laughter) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.1, top_p 0.95, top_k 30)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Amusement</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>150%</b> → reward <b>0.50</b> (emotion 0.26). Dose: 50% → reward 0.43 (emo 0.06) · 100% → 0.50 (emo 0.14) · 150% → 0.50 (emo 0.26).</p>
 <h2>Conditions</h2>

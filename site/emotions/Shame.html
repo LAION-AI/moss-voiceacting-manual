@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Shame — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Shame</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best without the LoRA — the evolved prompt (BASE_P) leads at reward 0.553 with an excellent WER of 0.077, while every merge is worse (LoRA50 0.483, down to 0.371 at 150%). Prompt-steer only: shame never registers as a distinct emotion here (target emo stays ~0.009 in all conditions), so the LoRA buys no emotion but costs blend and intelligibility (WER 0.077 to 0.373 at 50%). Practically, shame surfaces as sadness — BASE_P correlates with Pain (0.999), Sadness (0.978) and Disappointment (0.95) — so write it as quiet, downcast lines.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>evolved prompt, no LoRA</b> → reward <b>0.55</b> (emotion 0.01, WER 0.08).</p>
-<p>``<code> GENERAL: A voice deeply expressing shame, a small, shame-filled voice, cringing and self-reproaching, unable to look up, building and building. SCRIPT: (with cringing shame and self-reproach) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 0.9, top_p 0.95, top_k 25)</p>
+<pre><code>GENERAL: A voice deeply expressing shame, a small, shame-filled voice, cringing and self-reproaching, unable to look up, building and building.
+SCRIPT:
+(with cringing shame and self-reproach) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 0.9, top_p 0.95, top_k 25)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Shame</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.48</b> (emotion 0.00). Dose: 50% → reward 0.48 (emo 0.00) · 100% → 0.38 (emo 0.00) · 150% → 0.37 (emo 0.00).</p>
 <h2>Conditions</h2>

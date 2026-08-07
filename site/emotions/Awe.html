@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Awe — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Awe</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward is a tie between the LoRA at 50% (0.537) and the evolved prompt with no LoRA (BASE_P, 0.535) — both far ahead of LoRA100 (0.402) and LoRA150 (0.282), so never exceed 50%. Either config works; pick LoRA50 if you want the intelligibility bonus, since it actually lowers WER (0.162 to 0.110) while holding blend high (0.436). Note that measured awe strength stays near zero in every condition (emo 0.0-0.009), so do not expect a numeric emotion spike — you are prompting for a texture, not a detectable burst. The notable correlate is that LoRA50 reads awe as Pride (corr 0.86) and trades against Recording Quality, so it can sound grand but slightly degraded.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>evolved prompt, no LoRA</b> → reward <b>0.53</b> (emotion 0.01, WER 0.16).</p>
-<p>``<code> GENERAL: A voice utterly expressing awe, a hushed voice filled with awe and wonder, breath taken away, reverent, impossible to hide. SCRIPT: (in hushed awe and wonder) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.1, top_p 0.95, top_k 25)</p>
+<pre><code>GENERAL: A voice utterly expressing awe, a hushed voice filled with awe and wonder, breath taken away, reverent, impossible to hide.
+SCRIPT:
+(in hushed awe and wonder) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.1, top_p 0.95, top_k 25)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Awe</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.54</b> (emotion 0.00). Dose: 50% → reward 0.54 (emo 0.00) · 100% → 0.40 (emo 0.01) · 150% → 0.28 (emo 0.00).</p>
 <h2>Conditions</h2>

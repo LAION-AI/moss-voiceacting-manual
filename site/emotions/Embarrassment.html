@@ -23,14 +23,20 @@ em{color:#a9b6c6}
 .dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
 .dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .dcol audio{width:100%;height:28px;display:block;margin-top:4px}
-.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Embarrassment — conditioning guide</h1>
 <p><em>Target metric:</em> EmoNet <b>Embarrassment</b> strength (0–1). <em>Reward</em> = (genu + blend + 1.25·emo) / (1+WER).</p>
 <p><b>TL;DR.</b> Best reward comes WITH the LoRA at 50% (0.582 vs 0.498 for the plain BASE prompt, which is the best no-LoRA option here). Use the evolved steering prompt plus the 50% merge: the target-emotion signal stays weak (emo 0.026 — embarrassment resists direct elicitation), so the gain is actually driven by genuineness rising (0.110 to 0.161) and WER dropping sharply (0.269 to 0.112) while blend holds at 0.45. The trade-off is the speech-quality proxy, which falls from 0.625 to 0.475. Watch that the LoRA drags delivery toward a tired/sad register (shift up Fatigue +0.62, corr with Sadness 0.73 and Helplessness 0.71); don't exceed 50%, as LoRA100/150 both lose reward.</p>
 <h2>Without a LoRA (base model only)</h2>
 <p>Best: <b>neutral prompt, no LoRA</b> → reward <b>0.50</b> (emotion 0.01, WER 0.27).</p>
-<p>``<code> GENERAL: A voice unmistakably expressing embarrassment, a flustered, sheepish voice, cheeks burning with embarrassment, awkward and shrinking, impossible to hide. SCRIPT: (flustered and mortified with embarrassment) &quot;&amp;lt;your neutral sentence&amp;gt;&quot; </code>`` (sampling: temperature 1.05, top_p 0.9, top_k 30)</p>
+<pre><code>GENERAL: A voice unmistakably expressing embarrassment, a flustered, sheepish voice, cheeks burning with embarrassment, awkward and shrinking, impossible to hide.
+SCRIPT:
+(flustered and mortified with embarrassment) &quot;&lt;your neutral sentence&gt;&quot;</code></pre>
+<p>(sampling: temperature 1.05, top_p 0.9, top_k 30)</p>
 <h2>With the emotion LoRA</h2>
 <p>LoRA: <code>Embarrassment</code> (TTS-AGI/moss-emotion-loras-v3). Best merge: <b>50%</b> → reward <b>0.58</b> (emotion 0.03). Dose: 50% → reward 0.58 (emo 0.03) · 100% → 0.44 (emo 0.03) · 150% → 0.46 (emo 0.06).</p>
 <h2>Conditions</h2>

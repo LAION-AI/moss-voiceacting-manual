@@ -201,11 +201,56 @@ ceiling 47 % → **23 %**.
 - **A diagnostic must not be able to kill the run it diagnoses.** `min()` over an empty list in a
   log line took down a worker mid-run.
 
+## 9b. Generation v8 — what the latest round measured
+
+v8 added four things and re-ran all nine challenges (27 rounds, no worker crashes). Against v7,
+on the top-1 assembly of every round:
+
+| | v7 | v8 |
+|---|--:|--:|
+| **burst blending** | 3.96 | **4.90** |
+| emotion peak | 1.60 | **1.86** |
+| WER | 0.14 | **0.11** |
+| speaker similarity, worst part | 0.76 | **0.79** |
+| `runaway` | 0.06 | **0.04** |
+| `pros_join` | 0.84 | 0.79 |
+
+| continuation parts only | v7 | v8 |
+|---|--:|--:|
+| mean | 0.784 | **0.799** |
+| below 0.75 | 17 % | 22 % |
+| **below 0.55** | 6 % | **0 %** |
+
+**The blend weighting was the single biggest win: 3.96 → 4.90 (+24 %).** It came purely from
+giving the term a non-zero weight in candidate ranking — it had been 0.00 while genuineness, which
+correlates −0.21 with it, carried 0.34. The ranker had been mildly selecting *against* clean
+blending.
+
+**Severe identity failures are gone** — no continuation part in the whole run below 0.55 — but the
+mild band (below 0.75) got slightly worse and `pros_join` slipped, so the added penalties are
+pulling selection a little away from prosodic continuity. The three new guards read near zero
+(`edge_bursts` 0.01, `burst_db` 0.04, `narration` 0.02): almost nothing selected now has a burst on
+a seam, a burst towering over the speech, or a read-out delivery.
+
+**Read all of this against the objective's limits.** The composite correlates **+0.91…+0.98** with
+its own `(1 − WER)` multiplier, and v8 improved WER 0.14 → 0.11, so part of the apparent gain is
+intelligibility rather than acting. The blend jump is directly attributable — the weight was
+changed from zero — but the rest is suggestive. See
+[does the local reward predict a listener?](acting/reward_vs_listener.html).
+
+---
+
 ## 10. What is still open
 
 - **Rounds do not reliably improve.** Only 4 of 9 challenges peaked in their final round, and two
   got monotonically worse. The gains so far come from mechanical fixes, not from the feedback loop.
 - **Agent and listener disagree about ranking**, ρ from −0.53 to +0.90. The local sensor stack is
   not yet a reliable proxy for a listener's ordering of five near-equal takes.
+- **The reward barely predicts a listener.** Composite vs supervisor is ρ ≈ **+0.21** on spoken
+  scenes and ρ ≈ **−0.22** on non-verbal ones, and a cross-validated linear combination of every
+  local metric explains **under 3 %** of the listener's within-round preference. Re-weighting the
+  existing terms is a measured dead end — see [reward vs listener](acting/reward_vs_listener.html).
+- **`genu` and `blend` point the wrong way** against the listener (ρ −0.14 and −0.15), while
+  `genu` carried the largest single weight up to v7.
 - **`pros_fit` ≈ 0.62** is mostly model range, not disobedience (§6) — do not tune the planner
   against it.
