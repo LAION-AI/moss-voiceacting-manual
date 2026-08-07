@@ -1,57 +1,32 @@
-<!doctype html><html><head><meta charset=utf-8><title>Emotions — conditioning manual</title>
-<style>:root{--bg:#0e1117;--card:#161b22;--bd:#30363d;--mut:#8b949e;--acc:#58a6ff;--grn:#5be39a;--org:#f0883e}
-body{font-family:system-ui,Segoe UI,Arial;background:var(--bg);color:#e6edf3;margin:0;padding:26px;max-width:1050px}
-a{color:var(--acc)}h1{margin:0 0 4px}.sub{font-size:14px;color:var(--mut);font-weight:400}h2{color:var(--acc);margin:18px 0 6px}
-.lead{color:var(--mut);font-size:13px;line-height:1.55}code{background:#0d1117;padding:1px 5px;border-radius:4px}
-table{border-collapse:collapse;font-size:12px;margin:8px 0;width:100%}td,th{border:1px solid var(--bd);padding:4px 8px;text-align:right}th{color:var(--acc)}td.l,th.l{text-align:left}
-.item{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin:8px 0}.item audio{width:100%;height:28px;margin:5px 0}
-.tip{background:#0d1a14;border:1px solid #1f6f45;border-radius:10px;padding:11px 15px;font-size:13px;line-height:1.55;margin:8px 0}.tip b{color:#5be39a}
-.pr{white-space:pre-wrap;font-size:11px;background:#0d1117;border-left:3px solid var(--acc);padding:6px 9px;border-radius:4px;color:#c9d1d9;margin:6px 0}
-.dose{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.d{background:#0d1117;border:1px solid var(--bd);border-radius:8px;padding:8px}.d audio{width:100%;height:26px}
-.mm{font-size:10px;color:var(--mut);margin-top:2px}.big{font-size:15px;font-weight:700;color:#5be39a}.cc{font-size:12px;margin:4px 0;color:#c9d1d9}</style>
-</head><body>
-<p><a href='../index.html'>← manual home</a></p><h1>Emotions — conditioning manual</h1>
-<p class=lead>For each of the 40 emotions: the best prompting strategy <b>with and without</b> the emotion LoRA, the expected reward, the best merge %, and the measured <b>side-effects / correlations</b> on other EmoNet emotions, VoiceNet dimensions, genuineness, vocal-burst blend and speech quality. Data: 40 emotions × 5 conditions × 32 samples on neutral sentences.</p>
-<div class=tip>🎭 <b>Want a <i>held-back</i> emotion, not a <i>mild</i> one?</b> To make an intense feeling sound <b>contained / masked</b> (cold controlled rage, forced-calm terror, swallowed grief) rather than simply weak, do <b>not</b> turn the emotion LoRA down — keep it strong and add a masking layer (<code>vn_VULN_low</code> + <code>Emotional_Numbness</code> + light <code>vn_TENS_high</code>). See the <a href='../recipes/contained_emotion.html'>contained / masked emotion chapter</a>. Per-emotion contained recipes are linked from Anger / Fear / Sadness / Amusement.</div>
-<table><tr><th class=l>emotion</th><th>best reward</th><th class=l>best strategy</th><th>LoRA lift</th></tr>
-<tr><td class=l><a href='Fatigue_Exhaustion.html'>Fatigue Exhaustion</a></td><td>0.84</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.21</td></tr>
-<tr><td class=l><a href='Sexual_Lust.html'>Sexual Lust</a></td><td>0.78</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.25</td></tr>
-<tr><td class=l><a href='Jealousy_and_Envy.html'>Jealousy and Envy</a></td><td>0.77</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.17</td></tr>
-<tr><td class=l><a href='Helplessness.html'>Helplessness</a></td><td>0.75</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.18</td></tr>
-<tr><td class=l><a href='Distress.html'>Distress</a></td><td>0.72</td><td class=l>evolved prompt, no LoRA</td><td>-0.18</td></tr>
-<tr><td class=l><a href='Interest.html'>Interest</a></td><td>0.69</td><td class=l>neutral prompt, no LoRA</td><td>-0.07</td></tr>
-<tr><td class=l><a href='Sadness.html'>Sadness</a></td><td>0.63</td><td class=l>evolved prompt + LoRA 100%</td><td>+0.02</td></tr>
-<tr><td class=l><a href='Relief.html'>Relief</a></td><td>0.62</td><td class=l>evolved prompt, no LoRA</td><td>-0.11</td></tr>
-<tr><td class=l><a href='Contemplation.html'>Contemplation</a></td><td>0.62</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.02</td></tr>
-<tr><td class=l><a href='Bitterness.html'>Bitterness</a></td><td>0.62</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.10</td></tr>
-<tr><td class=l><a href='Infatuation.html'>Infatuation</a></td><td>0.62</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.13</td></tr>
-<tr><td class=l><a href='Concentration.html'>Concentration</a></td><td>0.61</td><td class=l>neutral prompt, no LoRA</td><td>-0.12</td></tr>
-<tr><td class=l><a href='Fear.html'>Fear</a></td><td>0.60</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.08</td></tr>
-<tr><td class=l><a href='Malevolence_Malice.html'>Malevolence Malice</a></td><td>0.59</td><td class=l>evolved prompt, no LoRA</td><td>-0.03</td></tr>
-<tr><td class=l><a href='Longing.html'>Longing</a></td><td>0.59</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.06</td></tr>
-<tr><td class=l><a href='Sourness.html'>Sourness</a></td><td>0.58</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.09</td></tr>
-<tr><td class=l><a href='Emotional_Numbness.html'>Emotional Numbness</a></td><td>0.58</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.06</td></tr>
-<tr><td class=l><a href='Embarrassment.html'>Embarrassment</a></td><td>0.58</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.08</td></tr>
-<tr><td class=l><a href='Disappointment.html'>Disappointment</a></td><td>0.58</td><td class=l>evolved prompt, no LoRA</td><td>-0.10</td></tr>
-<tr><td class=l><a href='Contentment.html'>Contentment</a></td><td>0.57</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.05</td></tr>
-<tr><td class=l><a href='Elation.html'>Elation</a></td><td>0.56</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.04</td></tr>
-<tr><td class=l><a href='Anger.html'>Anger</a></td><td>0.55</td><td class=l>evolved prompt, no LoRA</td><td>-0.12</td></tr>
-<tr><td class=l><a href='Shame.html'>Shame</a></td><td>0.55</td><td class=l>evolved prompt, no LoRA</td><td>-0.07</td></tr>
-<tr><td class=l><a href='Impatience_and_Irritability.html'>Impatience and Irritability</a></td><td>0.54</td><td class=l>neutral prompt, no LoRA</td><td>-0.08</td></tr>
-<tr><td class=l><a href='Awe.html'>Awe</a></td><td>0.54</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.00</td></tr>
-<tr><td class=l><a href='Pleasure_Ecstasy.html'>Pleasure Ecstasy</a></td><td>0.53</td><td class=l>evolved prompt + LoRA 150%</td><td>+0.04</td></tr>
-<tr><td class=l><a href='Pain.html'>Pain</a></td><td>0.53</td><td class=l>evolved prompt, no LoRA</td><td>-0.01</td></tr>
-<tr><td class=l><a href='Thankfulness_Gratitude.html'>Thankfulness Gratitude</a></td><td>0.53</td><td class=l>evolved prompt, no LoRA</td><td>-0.09</td></tr>
-<tr><td class=l><a href='Confusion.html'>Confusion</a></td><td>0.52</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.02</td></tr>
-<tr><td class=l><a href='Contempt.html'>Contempt</a></td><td>0.52</td><td class=l>evolved prompt, no LoRA</td><td>-0.06</td></tr>
-<tr><td class=l><a href='Affection.html'>Affection</a></td><td>0.51</td><td class=l>evolved prompt, no LoRA</td><td>-0.09</td></tr>
-<tr><td class=l><a href='Amusement.html'>Amusement</a></td><td>0.50</td><td class=l>neutral prompt, no LoRA</td><td>-0.00</td></tr>
-<tr><td class=l><a href='Teasing.html'>Teasing</a></td><td>0.50</td><td class=l>evolved prompt + LoRA 50%</td><td>+0.00</td></tr>
-<tr><td class=l><a href='Triumph.html'>Triumph</a></td><td>0.50</td><td class=l>evolved prompt, no LoRA</td><td>-0.01</td></tr>
-<tr><td class=l><a href='Hope_Enthusiasm_Optimism.html'>Hope Enthusiasm Optimism</a></td><td>0.50</td><td class=l>neutral prompt, no LoRA</td><td>-0.04</td></tr>
-<tr><td class=l><a href='Astonishment_Surprise.html'>Astonishment Surprise</a></td><td>0.50</td><td class=l>evolved prompt, no LoRA</td><td>-0.02</td></tr>
-<tr><td class=l><a href='Doubt.html'>Doubt</a></td><td>0.50</td><td class=l>neutral prompt, no LoRA</td><td>-0.06</td></tr>
-<tr><td class=l><a href='Disgust.html'>Disgust</a></td><td>0.49</td><td class=l>neutral prompt, no LoRA</td><td>-0.02</td></tr>
-<tr><td class=l><a href='Pride.html'>Pride</a></td><td>0.49</td><td class=l>neutral prompt, no LoRA</td><td>-0.09</td></tr>
-<tr><td class=l><a href='Intoxication_Altered_States_of_Consciousness.html'>Intoxication Altered States of Consciousness</a></td><td>0.49</td><td class=l>neutral prompt, no LoRA</td><td>-0.02</td></tr>
-</table></body></html>
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>index.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>MOSS-VA-v2 conditioning manual — Emotions</h1>
+<p>Per-emotion guide: best prompting strategy <b>with and without</b> the emotion LoRA, expected reward, best merge %, and the side-effects / correlations on other EmoNet emotions, VoiceNet dimensions, genuineness, vocal-burst blend and speech quality.</p>
+<blockquote>🎭 **Want a <em>held-back</em> emotion, not a <em>mild</em> one?<b> To make an intense feeling sound </b>contained / masked<b> (cold controlled rage, forced-calm terror, swallowed grief) rather than simply weak, do </b>not** turn the emotion LoRA down — keep it strong and add a masking layer (<code>vn_VULN_low</code> + <code>Emotional_Numbness</code> + light <code>vn_TENS_high</code>). See the <a href="../recipes/contained_emotion.md">contained / masked emotion chapter</a>. Per-emotion contained recipes are also linked from Anger / Fear / Sadness / Amusement below.</blockquote>
+<table><tr><th class="">emotion</th><th class="">best reward</th><th class="">best strategy</th><th class="">LoRA lift</th></tr><tr><td class=""><a href="Fatigue_Exhaustion.md">Fatigue Exhaustion</a></td><td class="">0.84</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.21</td></tr><tr><td class=""><a href="Sexual_Lust.md">Sexual Lust</a></td><td class="">0.78</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.25</td></tr><tr><td class=""><a href="Jealousy_and_Envy.md">Jealousy and Envy</a></td><td class="">0.77</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.17</td></tr><tr><td class=""><a href="Helplessness.md">Helplessness</a></td><td class="">0.75</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.18</td></tr><tr><td class=""><a href="Distress.md">Distress</a></td><td class="">0.72</td><td class="">evolved prompt, no LoRA</td><td class="">-0.18</td></tr><tr><td class=""><a href="Interest.md">Interest</a></td><td class="">0.69</td><td class="">neutral prompt, no LoRA</td><td class="">-0.07</td></tr><tr><td class=""><a href="Sadness.md">Sadness</a></td><td class="">0.63</td><td class="">evolved prompt + LoRA 100%</td><td class="">+0.02</td></tr><tr><td class=""><a href="Relief.md">Relief</a></td><td class="">0.62</td><td class="">evolved prompt, no LoRA</td><td class="">-0.11</td></tr><tr><td class=""><a href="Contemplation.md">Contemplation</a></td><td class="">0.62</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.02</td></tr><tr><td class=""><a href="Bitterness.md">Bitterness</a></td><td class="">0.62</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.10</td></tr><tr><td class=""><a href="Infatuation.md">Infatuation</a></td><td class="">0.62</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.13</td></tr><tr><td class=""><a href="Concentration.md">Concentration</a></td><td class="">0.61</td><td class="">neutral prompt, no LoRA</td><td class="">-0.12</td></tr><tr><td class=""><a href="Fear.md">Fear</a></td><td class="">0.60</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.08</td></tr><tr><td class=""><a href="Malevolence_Malice.md">Malevolence Malice</a></td><td class="">0.59</td><td class="">evolved prompt, no LoRA</td><td class="">-0.03</td></tr><tr><td class=""><a href="Longing.md">Longing</a></td><td class="">0.59</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.06</td></tr><tr><td class=""><a href="Sourness.md">Sourness</a></td><td class="">0.58</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.09</td></tr><tr><td class=""><a href="Emotional_Numbness.md">Emotional Numbness</a></td><td class="">0.58</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.06</td></tr><tr><td class=""><a href="Embarrassment.md">Embarrassment</a></td><td class="">0.58</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.08</td></tr><tr><td class=""><a href="Disappointment.md">Disappointment</a></td><td class="">0.58</td><td class="">evolved prompt, no LoRA</td><td class="">-0.10</td></tr><tr><td class=""><a href="Contentment.md">Contentment</a></td><td class="">0.57</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.05</td></tr><tr><td class=""><a href="Elation.md">Elation</a></td><td class="">0.56</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.04</td></tr><tr><td class=""><a href="Anger.md">Anger</a></td><td class="">0.55</td><td class="">evolved prompt, no LoRA</td><td class="">-0.12</td></tr><tr><td class=""><a href="Shame.md">Shame</a></td><td class="">0.55</td><td class="">evolved prompt, no LoRA</td><td class="">-0.07</td></tr><tr><td class=""><a href="Impatience_and_Irritability.md">Impatience and Irritability</a></td><td class="">0.54</td><td class="">neutral prompt, no LoRA</td><td class="">-0.08</td></tr><tr><td class=""><a href="Awe.md">Awe</a></td><td class="">0.54</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.00</td></tr><tr><td class=""><a href="Pleasure_Ecstasy.md">Pleasure Ecstasy</a></td><td class="">0.53</td><td class="">evolved prompt + LoRA 150%</td><td class="">+0.04</td></tr><tr><td class=""><a href="Pain.md">Pain</a></td><td class="">0.53</td><td class="">evolved prompt, no LoRA</td><td class="">-0.01</td></tr><tr><td class=""><a href="Thankfulness_Gratitude.md">Thankfulness Gratitude</a></td><td class="">0.53</td><td class="">evolved prompt, no LoRA</td><td class="">-0.09</td></tr><tr><td class=""><a href="Confusion.md">Confusion</a></td><td class="">0.52</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.02</td></tr><tr><td class=""><a href="Contempt.md">Contempt</a></td><td class="">0.52</td><td class="">evolved prompt, no LoRA</td><td class="">-0.06</td></tr><tr><td class=""><a href="Affection.md">Affection</a></td><td class="">0.51</td><td class="">evolved prompt, no LoRA</td><td class="">-0.09</td></tr><tr><td class=""><a href="Amusement.md">Amusement</a></td><td class="">0.50</td><td class="">neutral prompt, no LoRA</td><td class="">-0.00</td></tr><tr><td class=""><a href="Teasing.md">Teasing</a></td><td class="">0.50</td><td class="">evolved prompt + LoRA 50%</td><td class="">+0.00</td></tr><tr><td class=""><a href="Triumph.md">Triumph</a></td><td class="">0.50</td><td class="">evolved prompt, no LoRA</td><td class="">-0.01</td></tr><tr><td class=""><a href="Hope_Enthusiasm_Optimism.md">Hope Enthusiasm Optimism</a></td><td class="">0.50</td><td class="">neutral prompt, no LoRA</td><td class="">-0.04</td></tr><tr><td class=""><a href="Astonishment_Surprise.md">Astonishment Surprise</a></td><td class="">0.50</td><td class="">evolved prompt, no LoRA</td><td class="">-0.02</td></tr><tr><td class=""><a href="Doubt.md">Doubt</a></td><td class="">0.50</td><td class="">neutral prompt, no LoRA</td><td class="">-0.06</td></tr><tr><td class=""><a href="Disgust.md">Disgust</a></td><td class="">0.49</td><td class="">neutral prompt, no LoRA</td><td class="">-0.02</td></tr><tr><td class=""><a href="Pride.md">Pride</a></td><td class="">0.49</td><td class="">neutral prompt, no LoRA</td><td class="">-0.09</td></tr><tr><td class=""><a href="Intoxication_Altered_States_of_Consciousness.md">Intoxication Altered States of Consciousness</a></td><td class="">0.49</td><td class="">neutral prompt, no LoRA</td><td class="">-0.02</td></tr></table>
+</body></html>
