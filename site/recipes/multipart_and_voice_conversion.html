@@ -1,4 +1,4 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Multi-part performances &amp; voice conversion — MOSS-VA-v2</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>multipart_and_voice_conversion.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
 padding:30px;max-width:1000px;line-height:1.6}
 a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
 border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
@@ -12,7 +12,18 @@ blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 
 margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
 ul{padding-left:22px}li{margin:6px 0;font-size:14px}
 hr{border:0;border-top:1px solid #21262d;margin:26px 0}
-em{color:#a9b6c6}</style></head><body>
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}</style></head><body>
 <p><a href="../index.html">← Manual hub</a></p>
 <h1>Multi-part performances: keeping one actor across parts</h1>
 <p><em>Measured page, added 2026-08-05. Written because the first multi-part run got this wrong and the result was audible: a 30-second performance that sounded like three different people spliced together.</em></p>
@@ -46,6 +57,41 @@ em{color:#a9b6c6}</style></head><body>
 <p><code>tokens</code> is derived from the <b>word count</b>. For a part that is deliberately <b>non-verbal</b> (screaming, sobbing, agony), the text has almost no words — so the model is told to produce about five tokens and dutifully stops after ~0.3 s. This produced a 13 s "30-second" performance in the first run.</p>
 <p><b>For non-verbal parts, set <code>tokens</code> from the intended duration</b> (~12.5 per second) rather than from the word count, and raise <code>max_new_frames</code> to match.</p>
 <hr>
-<h2>6. Checklist</h2>
-<ul><li>[ ] Part 0 generated with <b>no</b> reference; best candidate saved as the anchor</li><li>[ ] Parts 1..n generated with <code>reference=[anchor]</code></li><li>[ ] ECAPA similarity measured against the anchor for every candidate</li><li>[ ] VC applied only below threshold, kept only if similarity ↑ <b>and</b> DNSMOS not ↓</li><li>[ ] Non-verbal parts sized by duration, not word count</li><li>[ ] Seams crossfaded</li><li>[ ] Assemblies ranked as wholes, with speaker similarity and arc in the score</li></ul>
+<h2>6. Continuation beats reference conditioning</h2>
+<p>Reference conditioning (§2) keeps the <em>timbre</em> roughly right but still starts a <b>fresh utterance</b>, with its own level, register and attack. Listeners hear that as a cut between two recordings even when ECAPA similarity looks acceptable.</p>
+<p>The processor supports <code>mode=&quot;continuation&quot;</code> natively, and it is the stronger fix: the previous audio sits in the <b>assistant turn</b> as tokens the model believes it already produced, so the new tokens are conditioned on real acoustic context rather than a summary of it.</p>
+<p>``<code>python conv = [[proc.build_user_message(text=cumulative_text, instruction=caption, language=&quot;English&quot;, tokens=n_tokens), proc.build_assistant_message(audio_codes_list=[prefix_codes])]] b = proc(conv, mode=&quot;continuation&quot;) </code>``</p>
+<p>Four things that are easy to get wrong, all measured:</p>
+<ul><li>The assistant turn takes <b>codec codes <code>[T, n_vq=12]</code>, not a waveform</b>. Passing the waveform raises <code>audio code tensor must have shape [T, 12]</code>.</li><li><code>proc.encode_audios_from_wav([...], 48000)</code> wants a <b>torch tensor</b>, not a numpy array — it calls <code>.unsqueeze()</code> internally.</li><li><code>text</code> must carry the <b>cumulative</b> script (words already spoken <em>and</em> words still to come), so the model knows where in the performance it is.</li><li><b>The decode returns ONLY the continuation, never the prefix.</b> Measured directly: a 9.3 s prefix returned 5.7–12.0 s of new audio. Do <b>not</b> trim the output — blind trimming left 0.2 s stubs, and a "1.2×" guard then mis-trimmed the long candidates.</li></ul>
+<h3>Chain from an anchor, not from the previous part</h3>
+<p>Feeding each part the <em>whole</em> previous part lets drift compound and drags the old mood forward. Measured across a 9-challenge run:</p>
+<table><tr><th class=""></th><th class="">part 1</th><th class="">part 2</th><th class="">part 3</th></tr><tr><td class="">speaker similarity, chained</td><td class="">0.691</td><td class="">0.692</td><td class=""><b>0.280</b></td></tr></table>
+<p>Peak emotion also fell 2.29 → 2.05 against reference-only conditioning: a long prefix is a long argument for staying in the previous emotion.</p>
+<p><b>Use anchor + short tail instead</b>: the fixed part-0 anchor (identity that cannot drift) plus ~4 s of the immediately preceding part (just enough prosodic context). After this change the same challenge measured <b>0.791</b> and <b>0.805</b> on parts 2 and 3 — the compounding is gone.</p>
+<hr>
+<h2>7. Speaker identity: resample, do not settle</h2>
+<p>Ranking the best of one batch is not enough. If a whole batch drifts, the least-bad take still ships, and the listener hears a second actor mid-scene. Three thresholds, applied in order:</p>
+<table><tr><th class="">threshold</th><th class="">default</th><th class="">action</th></tr><tr><td class=""><code>spk_target</code></td><td class="">0.82</td><td class="">if no candidate reaches it, <b>generate the part again</b> with fresh seeds and merge the pools (up to 2 retries)</td></tr><tr><td class=""><code>vc_threshold</code></td><td class="">0.75</td><td class="">attempt voice conversion as a repair</td></tr><tr><td class=""><code>spk_floor</code></td><td class="">0.68</td><td class="">take is scored ×0.25 — effectively unusable however good the acting</td></tr></table>
+<p>Then, when ranking whole assemblies, score speaker similarity as <b>half mean, half minimum</b>:</p>
+<p>``<code>python spk = 0.5 <em> np.mean(sims) + 0.5 </em> min(sims) </code>``</p>
+<p>A plain mean let assemblies containing a 0.28 part win on their other three parts. A listener does not average identity across a take.</p>
+<h3>Prompt for it as well as measure it</h3>
+<p>Two textual levers, both cheap:</p>
+<ul><li><b>Append an explicit continuity sentence to <code>GENERAL</code></b> on every continuation part: *"The same speaker from the preceding audio continues without interruption: identical voice, identical person, same microphone and same room — no cut, no new narrator, no change of casting."*</li><li><b>Keep the <code>GENERAL</code> voice description byte-identical across parts.</b> Describe the person once and repeat that description verbatim; vary only the delivery cue and the emotional state. A <code>GENERAL</code> that re-describes the voice differently is an invitation to cast a different voice.</li></ul>
+<hr>
+<h2>8. Prosody discipline: tempo, chunking, disfluency</h2>
+<p>The failure a listener described as the actor <em>"getting carried away — too much into it"</em>: the pace runs away inorganically, and phrasing changes between parts for no reason. It was never measured, so nothing selected against it. Fear scenes were the worst offenders, because "terrified" gets written as "fast".</p>
+<p>Three VoiceNet heads cover exactly these axes, plus one arithmetic cross-check:</p>
+<table><tr><th class="">signal</th><th class="">source</th><th class="">what it means</th></tr><tr><td class=""><code>TEMP</code></td><td class="">VoiceNet, 0–6</td><td class="">tempo: 3 ordinary conversation, 4 brisk, 5 compressed/urgent, 6 auctioneer</td></tr><tr><td class=""><code>CHNK</code></td><td class="">VoiceNet, 0–6</td><td class="">chunking: 0 shattered syllables, 2 short cautious groups, 3 sentence-length breath units, 6 unbroken wall</td></tr><tr><td class=""><code>DFLU</code></td><td class="">VoiceNet, 0–6</td><td class="">disfluency: fillers, restarts, stammers</td></tr><tr><td class="">words/sec</td><td class="">ASR hypothesis ÷ duration</td><td class="">independent check; <b>above ~4.0 w/s is a runaway</b></td></tr></table>
+<p>Use the continuous <code>reg</code> value, not the bucket — parts are compared to each other and you need sub-bucket resolution.</p>
+<h3>The governing rule</h3>
+<blockquote>Prosody must <b>either flow smoothly</b> from part to part, <b>or change for a stated reason</b>.</blockquote>
+<p>So the plan declares <code>tempo_target</code>, <code>chunk_target</code> and a boolean <code>prosody_turn</code> per part, and both halves are scored:</p>
+<ul><li><b>Undeclared seam</b> — consecutive parts must stay within ~1 point; the penalty ramps beyond that.</li><li><b>Declared turn</b> — a change is now <em>required</em>: a declared turn that does not actually move scores ≤ 0.6, and a lurch beyond ~3 points is penalised too. A move, not a jump.</li><li><b>Runaway</b> is multiplicative, not a term (<code>× (1 − 0.35·runaway)</code>): a take that sprints is spoiled, not merely lower-scoring, and must not buy the loss back with genuineness.</li></ul>
+<h3>Chunking is the dial for fear, not tempo</h3>
+<p>The single most useful correction. Real distress is more often held breath, short groups and stalling than it is a sprint. <b><code>chunk_target</code> 1–2 with <code>tempo_target</code> 3 reads as genuine fear; <code>tempo_target</code> 5 reads as a caffeinated narrator.</b> Reserve 5 for a genuine loss of control, and treat 6 as always wrong unless the brief is panic or auctioneering.</p>
+<p>Plan prosody as a <em>shape</em> across the whole performance, e.g. tempo 3 → 2 → 4 with chunk 3 → 1 → 2, declaring <code>prosody_turn</code> on the middle part (the character stalls) and the last (they break) — and state the reason in the delivery cue so the writing and the numbers agree.</p>
+<hr>
+<h2>9. Checklist</h2>
+<ul><li>[ ] Part 0 generated with <b>no</b> reference; best candidate saved as the anchor</li><li>[ ] Parts 1..n generated as <b>continuations</b> from <b>anchor + ~4 s tail</b>, not chained from the full previous part</li><li>[ ] Continuation <code>text</code> carries the <b>cumulative</b> script; output <b>not</b> trimmed</li><li>[ ] Explicit "same speaker continues" sentence appended to <code>GENERAL</code>; voice description identical across parts</li><li>[ ] ECAPA similarity measured against the anchor for every candidate</li><li>[ ] Part <b>regenerated</b> if no candidate reaches <code>spk_target</code> (0.82)</li><li>[ ] VC applied only below threshold, kept only if similarity ↑ <b>and</b> DNSMOS not ↓</li><li>[ ] Takes below <code>spk_floor</code> (0.68) rejected before ranking</li><li>[ ] <code>tempo_target</code> / <code>chunk_target</code> declared per part; <code>prosody_turn</code> set only where the change is intended</li><li>[ ] Seams scored: smooth where undeclared, actually moving where declared</li><li>[ ] Words/sec checked against the ~4.0 ceiling</li><li>[ ] Non-verbal parts sized by duration, not word count</li><li>[ ] Seams crossfaded and <b>level-matched</b> to part 0</li><li>[ ] Assemblies ranked as wholes, with speaker similarity (mean <b>and min</b>), arc and prosody in the score</li></ul>
 </body></html>

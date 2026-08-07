@@ -114,12 +114,144 @@ from the word count, and raise `max_new_frames` to match.
 
 ---
 
-## 6. Checklist
+## 6. Continuation beats reference conditioning
+
+Reference conditioning (§2) keeps the *timbre* roughly right but still starts a **fresh
+utterance**, with its own level, register and attack. Listeners hear that as a cut between two
+recordings even when ECAPA similarity looks acceptable.
+
+The processor supports `mode="continuation"` natively, and it is the stronger fix: the previous
+audio sits in the **assistant turn** as tokens the model believes it already produced, so the new
+tokens are conditioned on real acoustic context rather than a summary of it.
+
+```python
+conv = [[proc.build_user_message(text=cumulative_text, instruction=caption,
+                                 language="English", tokens=n_tokens),
+         proc.build_assistant_message(audio_codes_list=[prefix_codes])]]
+b = proc(conv, mode="continuation")
+```
+
+Four things that are easy to get wrong, all measured:
+
+- The assistant turn takes **codec codes `[T, n_vq=12]`, not a waveform**. Passing the waveform
+  raises `audio code tensor must have shape [T, 12]`.
+- `proc.encode_audios_from_wav([...], 48000)` wants a **torch tensor**, not a numpy array — it
+  calls `.unsqueeze()` internally.
+- `text` must carry the **cumulative** script (words already spoken *and* words still to come),
+  so the model knows where in the performance it is.
+- **The decode returns ONLY the continuation, never the prefix.** Measured directly: a 9.3 s
+  prefix returned 5.7–12.0 s of new audio. Do **not** trim the output — blind trimming left
+  0.2 s stubs, and a "1.2×" guard then mis-trimmed the long candidates.
+
+### Chain from an anchor, not from the previous part
+
+Feeding each part the *whole* previous part lets drift compound and drags the old mood forward.
+Measured across a 9-challenge run:
+
+| | part 1 | part 2 | part 3 |
+|---|--:|--:|--:|
+| speaker similarity, chained | 0.691 | 0.692 | **0.280** |
+
+Peak emotion also fell 2.29 → 2.05 against reference-only conditioning: a long prefix is a long
+argument for staying in the previous emotion.
+
+**Use anchor + short tail instead**: the fixed part-0 anchor (identity that cannot drift) plus
+~4 s of the immediately preceding part (just enough prosodic context). After this change the same
+challenge measured **0.791** and **0.805** on parts 2 and 3 — the compounding is gone.
+
+---
+
+## 7. Speaker identity: resample, do not settle
+
+Ranking the best of one batch is not enough. If a whole batch drifts, the least-bad take still
+ships, and the listener hears a second actor mid-scene. Three thresholds, applied in order:
+
+| threshold | default | action |
+|---|--:|---|
+| `spk_target` | 0.82 | if no candidate reaches it, **generate the part again** with fresh seeds and merge the pools (up to 2 retries) |
+| `vc_threshold` | 0.75 | attempt voice conversion as a repair |
+| `spk_floor` | 0.68 | take is scored ×0.25 — effectively unusable however good the acting |
+
+Then, when ranking whole assemblies, score speaker similarity as **half mean, half minimum**:
+
+```python
+spk = 0.5 * np.mean(sims) + 0.5 * min(sims)
+```
+
+A plain mean let assemblies containing a 0.28 part win on their other three parts. A listener does
+not average identity across a take.
+
+### Prompt for it as well as measure it
+
+Two textual levers, both cheap:
+
+- **Append an explicit continuity sentence to `GENERAL`** on every continuation part: *"The same
+  speaker from the preceding audio continues without interruption: identical voice, identical
+  person, same microphone and same room — no cut, no new narrator, no change of casting."*
+- **Keep the `GENERAL` voice description byte-identical across parts.** Describe the person once
+  and repeat that description verbatim; vary only the delivery cue and the emotional state. A
+  `GENERAL` that re-describes the voice differently is an invitation to cast a different voice.
+
+---
+
+## 8. Prosody discipline: tempo, chunking, disfluency
+
+The failure a listener described as the actor *"getting carried away — too much into it"*: the
+pace runs away inorganically, and phrasing changes between parts for no reason. It was never
+measured, so nothing selected against it. Fear scenes were the worst offenders, because "terrified"
+gets written as "fast".
+
+Three VoiceNet heads cover exactly these axes, plus one arithmetic cross-check:
+
+| signal | source | what it means |
+|---|---|---|
+| `TEMP` | VoiceNet, 0–6 | tempo: 3 ordinary conversation, 4 brisk, 5 compressed/urgent, 6 auctioneer |
+| `CHNK` | VoiceNet, 0–6 | chunking: 0 shattered syllables, 2 short cautious groups, 3 sentence-length breath units, 6 unbroken wall |
+| `DFLU` | VoiceNet, 0–6 | disfluency: fillers, restarts, stammers |
+| words/sec | ASR hypothesis ÷ duration | independent check; **above ~4.0 w/s is a runaway** |
+
+Use the continuous `reg` value, not the bucket — parts are compared to each other and you need
+sub-bucket resolution.
+
+### The governing rule
+
+> Prosody must **either flow smoothly** from part to part, **or change for a stated reason**.
+
+So the plan declares `tempo_target`, `chunk_target` and a boolean `prosody_turn` per part, and
+both halves are scored:
+
+- **Undeclared seam** — consecutive parts must stay within ~1 point; the penalty ramps beyond that.
+- **Declared turn** — a change is now *required*: a declared turn that does not actually move
+  scores ≤ 0.6, and a lurch beyond ~3 points is penalised too. A move, not a jump.
+- **Runaway** is multiplicative, not a term (`× (1 − 0.35·runaway)`): a take that sprints is
+  spoiled, not merely lower-scoring, and must not buy the loss back with genuineness.
+
+### Chunking is the dial for fear, not tempo
+
+The single most useful correction. Real distress is more often held breath, short groups and
+stalling than it is a sprint. **`chunk_target` 1–2 with `tempo_target` 3 reads as genuine fear;
+`tempo_target` 5 reads as a caffeinated narrator.** Reserve 5 for a genuine loss of control, and
+treat 6 as always wrong unless the brief is panic or auctioneering.
+
+Plan prosody as a *shape* across the whole performance, e.g. tempo 3 → 2 → 4 with chunk 3 → 1 → 2,
+declaring `prosody_turn` on the middle part (the character stalls) and the last (they break) —
+and state the reason in the delivery cue so the writing and the numbers agree.
+
+---
+
+## 9. Checklist
 
 - [ ] Part 0 generated with **no** reference; best candidate saved as the anchor
-- [ ] Parts 1..n generated with `reference=[anchor]`
+- [ ] Parts 1..n generated as **continuations** from **anchor + ~4 s tail**, not chained from the full previous part
+- [ ] Continuation `text` carries the **cumulative** script; output **not** trimmed
+- [ ] Explicit "same speaker continues" sentence appended to `GENERAL`; voice description identical across parts
 - [ ] ECAPA similarity measured against the anchor for every candidate
+- [ ] Part **regenerated** if no candidate reaches `spk_target` (0.82)
 - [ ] VC applied only below threshold, kept only if similarity ↑ **and** DNSMOS not ↓
+- [ ] Takes below `spk_floor` (0.68) rejected before ranking
+- [ ] `tempo_target` / `chunk_target` declared per part; `prosody_turn` set only where the change is intended
+- [ ] Seams scored: smooth where undeclared, actually moving where declared
+- [ ] Words/sec checked against the ~4.0 ceiling
 - [ ] Non-verbal parts sized by duration, not word count
-- [ ] Seams crossfaded
-- [ ] Assemblies ranked as wholes, with speaker similarity and arc in the score
+- [ ] Seams crossfaded and **level-matched** to part 0
+- [ ] Assemblies ranked as wholes, with speaker similarity (mean **and min**), arc and prosody in the score
