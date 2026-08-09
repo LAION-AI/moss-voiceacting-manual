@@ -1,9 +1,12 @@
 # Contained / masked emotion — making a strong feeling sound *held back*, and measuring it
 
-*Measured recipe page, rounds 1–5 (Aug 2026). Additive — nothing on the emotion, VoiceNet or
+*Measured recipe page (Aug 2026). Additive — nothing on the emotion, VoiceNet or
 expressive pages is retracted. This answers a target none of the other pages do: how to make an
 **intense** emotion sound **held back** — contained, controlled, masked — rather than simply **mild**,
-and how to **measure** whether you succeeded. From a 5-round autonomous-agent study on
+and how to **measure** whether you succeeded. Built from a 5-round autonomous-agent study on the four
+anchors (Anger / Amusement / Fear / Sadness), then a **40-emotion 2×2 sweep**, then a **deep re-run of
+the 15 thinnest/hardest emotions with real paired-audio ΔVULN** — the last of which **overturns** part
+of the earlier story (see the decision rule below and §9). Model
 `laion/moss-tts-local-transformer-4.55b-voice-acting-v2` (MOSS-VA-v2): brain **gpt-5.4**, naturalness
 judge **Gemini**, scored with a 99-dimension perceptual vector (40 EmoNet emotions + 57 VoiceNet
 voice-quality dims + GENU genuineness + BLEND vocal-burst blend).*
@@ -15,13 +18,36 @@ The HTML is generated from the Markdown by
 Listen to the clips + scores on the flagship page:
 [projects.laion.ai/emotion-voice-conditions/contained.html](https://projects.laion.ai/emotion-voice-conditions/contained.html).
 
-> **Read this first (the honest bottom line).** Making an emotion *quieter* is easy; making it read as
-> *held back* — same strong feeling underneath, a surface that is holding it in — is **hard**, and the
-> harder truth is that a **number can say "masked" while the ear hears "acted" or "erased"**. Over five
-> rounds we found a numeric masking signature that reproduces for **Anger** and (at moderate intensity)
-> **Amusement**, masks only weakly / reads acted for **Fear**, and for **Sadness** works mainly by
-> *erasing* the sadness. The winning mask turned out to be **light and prompt-led**, not a heavy LoRA
-> stack. This page gives the method, the exact recipes, the measured numbers, and the limits.
+> **Read this first (the corrected bottom line).** Making an emotion *quieter* is easy; making it read
+> as *held back* — same strong feeling underneath, a surface holding it in — is **hard**, and **masking
+> is not a general trick.** With real paired-audio measurement (the deep re-run, §9) it **works for one
+> kind of emotion and reverses for another**, and the deciding factor is *what the emotion's signal
+> actually is*:
+>
+> **The decision rule (use this to decide whether to even attempt masking a new emotion):**
+> - **Masking WORKS when the emotion's audible signal is effort / arousal / social-surface and
+>   vulnerability is *incidental*.** Holding it back lowers the give in the voice while the feeling
+>   stays measurable. Measured wins: **Fatigue/Exhaustion** (ΔVULN −0.27, and the emotion actually
+>   *rises*), **Embarrassment** (−0.11/−0.25), **Pain** (−0.18 moderate), and the cognitive / low-arousal
+>   states **Emotional Numbness** (−0.55 intense), **Intoxication** (−1.05 intense), **Helplessness**
+>   (−0.23 intense).
+> - **Masking FAILS or REVERSES when vulnerability *is* the emotion's core.** You cannot hide the
+>   exposure without deleting the feeling, and a "held-back" delivery paradoxically reads as **more**
+>   exposed. Measured reversals (held-back cohort scores *more* vulnerable, ΔVULN **positive**):
+>   **Sadness** (+1.29 moderate), **Pride** (+1.09), **Distress** (+0.43), **Affection** (+0.59 intense).
+>   For these, **ship the free/open take** — masking is the wrong tool.
+> - **A middle case: erasure, not masking.** For **Fear** and **Doubt** at intense, VULN drops only
+>   because the emotion drops with it — the mask deletes the feeling. Fear also reads *acted* to the
+>   naturalness judge. **Confusion** and **Infatuation** show no signal either way.
+>
+> Two method facts hold throughout: **the winning mask is light and prompt-led over a
+> `char_genuine/human` scaffold**, not a heavy LoRA stack (`Emotional_Numbness` / `vn_TENS_high` armor
+> and flatten the voice); and **a number can still disagree with the ear** — always keep a naturalness
+> listener in the loop. Note the correction: the earlier "**Anger works cleanly / moderate contains,
+> intense flattens**" story came from the four-anchor rounds and a *sparse, unpaired* 40-run; the
+> paired re-run shows it is **not a universal law** — the cognitive family actually masks *better* at
+> intense, and several core-vulnerability emotions reverse at moderate. The round-by-round history is
+> kept below (it is how the method was found); the emotion-specific rule above is the corrected result.
 
 ---
 
@@ -275,14 +301,20 @@ often collapsed with the refs). Keep the sentence emotionally blank so all the a
 - **Numbers can disagree with the ear.** The 99-vec proxy (emotion-held + VULN-down) can read "masked"
   while the naturalness judge hears "acted" (Fear) or "erased" (Sadness). Always keep a human/Gemini
   listener in the loop; do not ship on the VULN gap alone.
-- **Sadness resists masking most.** It is intrinsically high-VULN and low-arousal, so subtle sadness
-  ≈ neutral/tired to the detector, and masking attacks vulnerability, which *is* sadness's core.
-  Held-back sadness collapses toward neutrality. Ship the **free** take.
+- **Sadness resists masking most — and the paired re-run shows it *reverses*.** It is intrinsically
+  high-VULN and low-arousal; masking attacks vulnerability, which *is* sadness's core. The four-anchor
+  rounds read this as *erasure*; with real paired audio it is an outright **reversal** — the held-back
+  cohort scores **+1.29** VULN *above* the free cohort (a "held-back" delivery reads as *more* exposed).
+  Sadness, Pride, Distress and Affection all behave this way. Ship the **free** take.
 - **Amusement's laugh and its intensity are entangled.** Masking the muscular effort of laughing mutes
   the laugh; only a *light* moderate mask (warm deadpan) survives, and it is **reference-specific**
   (ref14 was the reliable base). Intense-contained flattens it.
-- **Intense-contained tends to flatten in general.** The believable wins were at **moderate**
-  intensity; strong-feeling-held-hard remains the frontier.
+- **"Intense-contained flattens" is *not* a general law (corrected by §9's deep re-run).** In the
+  four-anchor rounds and the joy/laugh family the believable wins were at **moderate** intensity, and
+  that is still true for laugh-entangled and core-vulnerability emotions. But with real paired audio the
+  **cognitive / low-arousal family masks *better* at intense** (Emotional Numbness −0.55, Intoxication
+  −1.05, Helplessness −0.23 all appear only in the intense cell). Decide per emotion by its family, not
+  by a blanket moderate/intense rule.
 - **Free takes sound more natural than contained ones.** The core unsolved problem is making
   *held-back* emotion read as **genuine restraint** rather than as merely *reduced* emotion.
 - **Everything is WER-gated and English-first.** The mask stacks adapters over a scaffold — watch
