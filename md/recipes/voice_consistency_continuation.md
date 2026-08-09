@@ -22,14 +22,19 @@ experiments are in the [acting-challenge tree](acting/index.html) if you want th
 3. **Keep the `GENERAL` voice description byte-identical** across clips. Change only the delivery
    cue and the emotional state.
 4. **Append a continuity sentence** to `GENERAL` on every continuation clip.
-5. **Measure ECAPA cosine similarity** against the anchor and *enforce* it: regenerate below 0.82,
-   repair with voice conversion below 0.75, reject below 0.68.
+5. **Measure ECAPA cosine similarity** against the anchor and *enforce* it — but at a **much
+   lower threshold than feels right**: regenerate below **0.58**, repair with voice conversion
+   below **0.45**, reject below **0.40**. Higher thresholds discard the majority of takes a
+   listener accepts and quietly select flat delivery (§5b).
 6. **Do not apply step 5 to non-verbal clips** (screams, sobs, gasps). The metric stops working
    there.
 
 Measured effect of doing this versus reference conditioning alone, over 9 scenes × 3 rounds:
-mean similarity on later clips **0.662 → 0.799**, share below 0.75 **54 % → 22 %**, and — the part
-that matters most — **share below 0.55 fell to 0 %**. Identity no longer collapses.
+mean similarity on later clips **0.662 → 0.811**, share below 0.75 **54 % → 12 %**, and — the part
+that matters most — **share below 0.55 fell from 25 % to 0 %**. Identity no longer collapses.
+
+Restricted to the **spoken** scenes (excluding screams and other non-verbal clips, where the
+metric breaks down — §8) the figures are **0.816 mean and 0 % below 0.55**.
 
 ---
 
@@ -141,9 +146,14 @@ drifts, the least-bad take still ships.** That is precisely how a second actor a
 
 | threshold | value | action |
 |---|--:|---|
-| `spk_target` | **0.82** | no candidate reaches it → **generate the clip again** with fresh seeds and merge the candidate pools |
-| `vc_threshold` | **0.75** | attempt voice conversion to the anchor as a repair |
-| `spk_floor` | **0.68** | reject the take outright — exclude it from ranking entirely |
+| `spk_target` | **0.58** | no candidate reaches it → **generate the clip again** with fresh seeds and merge the candidate pools |
+| `vc_threshold` | **0.45** | attempt voice conversion to the anchor as a repair |
+| `spk_floor` | **0.40** | reject the take outright — exclude it from ranking entirely |
+
+> **These numbers were 0.82 / 0.75 / 0.68 and are now much lower. That correction is the single
+> most important thing on this page — see §5b for the measurements behind it.** Setting them high
+> feels safe and is not: it discards most of the takes a listener would accept, and quietly
+> selects flat, unexpressive delivery.
 
 Two details that turned out to matter:
 
@@ -166,6 +176,73 @@ and **keep it only if similarity rose *and* DNSMOS did not fall by more than 0.1
 conv = voice_converter().convert(src_path, anchor_path)   # float32 @ 24 kHz
 keep = (sim_after > sim_before) and (dnsmos_after >= dnsmos_before - 0.15)
 ```
+
+## 5b. Calibrating the identity threshold — what the numbers actually are
+
+Everything in §5 depends on one assumption: that the similarity score means what you think it
+means. It does not, and this section is the evidence. All of it comes from **200 real clip-pairs
+from this pipeline**, each judged by a strong audio model on two questions — *is this the same
+speaker?* and *how smooth is the transition, 0–5?*
+
+### ECAPA cannot support a high threshold
+
+Among the **170 pairs judged to be the SAME speaker**:
+
+| | |
+|---|--:|
+| median ECAPA similarity | **0.632** |
+| share below a 0.68 floor | **55 %** |
+| share below a 0.82 target | **84 %** |
+| highest score reached by a genuinely **DIFFERENT** speaker | **0.816** |
+
+Read the last row against the others. A threshold of 0.68 throws away more than half of the
+acceptable takes, and a real speaker change scored 0.816 — so **no cut-off in that region
+separates the two groups.** The Youden-optimal floor on this data is **0.29**; 0.40 is a
+reasonable compromise that catches ~80 % of genuine swaps while discarding ~29 % of good takes.
+
+### The same is true of every other embedding we tried
+
+We tested four ways of measuring "same speaker" on the identical 200 pairs. **AUC** is the
+probability that a genuinely different pair scores below a same-speaker pair (0.5 = chance):
+
+| embedding | what it is | AUC | median (same) | max (different) | same-speaker below that max |
+|---|---|--:|--:|--:|--:|
+| **ECAPA-TDNN** | standard speaker verification, VoxCeleb | **0.847** | 0.632 | 0.821 | 84 % |
+| VoiceNet time-independent | 18 of our own perceptual dims (age, gender, register, pitch range, brightness, fullness, harmonicity, metallic, roughness, smoothness, warmth, 6× resonance) | 0.814 | 0.409 | 0.527 | 74 % |
+| WavLM timbre | [`Orange/Speaker-wavLM-tbr`](https://huggingface.co/Orange/Speaker-wavLM-tbr), compares timbre only | 0.794 | 0.746 | 0.943 | 95 % |
+| VoiceCLAP | the raw encoder, never trained for identity | 0.770 | 0.672 | 0.711 | 61 % |
+
+**The last column is the finding.** For every single method, the large majority of same-speaker
+pairs score below the *highest* different-speaker pair. There is no clean threshold with any of
+them. The problem is not that we picked the wrong embedding — it is that **gating hard on a single
+similarity number does not work on emotionally varied speech.**
+
+An out-of-fold logistic ensemble of ECAPA + the VoiceNet profile reaches **AUC 0.854** versus
+0.838 for ECAPA alone. Real, small, and essentially free if you already compute those dimensions
+— but not a solution.
+
+### Ranking on identity is fine. Gating on it is not.
+
+This distinction is easy to miss and it changes what you build:
+
+- **Ranking** — *"of these 16 candidates, which is most likely the same voice?"* In a 50-pair A/B
+  comparison the higher-ECAPA take was preferred **70 %** of the time. Use it, weight it
+  meaningfully (~0.19 of the candidate score).
+- **Gating** — *"is 0.66 good enough to keep?"* ECAPA cannot answer this. Keep the floor low
+  enough to catch only catastrophic voice swaps.
+
+### Recommendations
+
+1. **Floor 0.40, resample target 0.58, VC threshold 0.45.** Not 0.68/0.82/0.75.
+2. **Rank with ECAPA, optionally ensembled with the VoiceNet time-independent profile.**
+3. **Never raise the floor to "be safe".** The failure it creates — flat, over-clean delivery — is
+   less visible than a voice change but more damaging, because it affects *every* take rather
+   than a few.
+4. **Judge agreement is 84 %** between a fast and a strong reasoning model on these labels, and the
+   stronger model is *more* permissive (47/50 vs 43/50 "same"). Automatic labels tend to
+   **over-report** speaker changes, so treat any measured drift rate as an upper bound.
+5. **Get more different-speaker examples before tuning further.** Every threshold number here
+   rests on 30 of them; that is the binding constraint on knowing more.
 
 ## 6. Seeds — a trap worth knowing about
 
@@ -209,7 +286,7 @@ run by clip type:
 
 **Every** identity failure left in the corpus is a non-verbal clip. ECAPA needs voiced, sustained
 material; a 1–3 s scream gives it almost none, so a low number there is substantially measuring
-*the absence of anything to embed* rather than a change of speaker. Gating screams at 0.82 burns
+*the absence of anything to embed* rather than a change of speaker. Gating screams at a high threshold burns
 regenerations on something the threshold cannot fix.
 
 Two more non-verbal traps:
@@ -230,7 +307,8 @@ Two more non-verbal traps:
 - [ ] Continuity sentence appended to every continuation caption
 - [ ] Cues written as **changes** and as **actions**, never as tone labels
 - [ ] Emotion adapter **0.35–0.75**, nearer the top on the clip that carries the turn
-- [ ] Similarity **enforced**: regenerate < 0.82, VC < 0.75, reject < 0.68; sequence scored ½ mean + ½ min
+- [ ] Similarity **enforced**: regenerate < **0.58**, VC < **0.45**, reject < **0.40**; sequence scored ½ mean + ½ min
+- [ ] Identity **ranked** with real weight (~0.19) but **never gated high** — ranking works, gating does not (§5b)
 - [ ] VC kept only if similarity ↑ **and** DNSMOS not ↓ by > 0.15
 - [ ] Seeds vary per character/scene **and** per sub-batch; `batch < candidates`
 - [ ] Clips start and end **on a word**; bursts inside the line, not louder than ~6 dB over speech

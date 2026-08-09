@@ -47,8 +47,9 @@ different actors, and no amount of crossfading hides it.
 
 ## 3. When conditioning is not enough: Chatterbox voice conversion
 
-If a part still lands below your similarity threshold (~0.55 works), convert it to the anchor's
-identity instead of throwing it away.
+If a part still lands below your similarity threshold (**~0.45** — see §7 and the
+[continuation page](voice_consistency_continuation.md) §5b for why this number is much lower than
+it intuitively should be), convert it to the anchor's identity instead of throwing it away.
 
 **Tool:** [`LAION-AI/chatterbox-voice-conversion`](https://github.com/LAION-AI/chatterbox-voice-conversion),
 zero-shot VC on Resemble AI's Chatterbox S3Gen. Content tokens from the source, a 192-dim CAMPPlus
@@ -236,6 +237,49 @@ Three VoiceNet heads cover exactly these axes, plus one arithmetic cross-check:
 Use the continuous `reg` value, not the bucket — parts are compared to each other and you need
 sub-bucket resolution.
 
+### A rule that says "smooth unless declared" will make everything uniform
+
+This is a mistake worth inheriting rather than repeating. The seam rule below was written as
+*"prosody must either flow smoothly OR change for a stated reason"* — which sounds balanced. In
+practice the planner rarely declared a change, so the rule reduced to **"stay uniform"**, and it
+actively punished the variation that makes acting sound like acting.
+
+The measurable consequence, between two runs: the spread of speaking rate across the parts of a
+performance **fell 19 %** (sd 0.90 → 0.73) while the mean rose. A listener described the result
+without seeing any numbers: *"too little variance in the style how they are talking."*
+
+**Fix it in two places at once:**
+
+- **Loosen the penalty.** Only mark down a genuine *lurch* (more than ~2.5 scale points between
+  neighbouring parts). Ordinary movement should be free.
+- **Add a positive reward for spread.** Score `max − min` of tempo, chunking and disfluency across
+  the performance, targeting roughly one full scale point of movement. Variation must *earn*
+  points, not merely avoid losing them.
+
+A caution from doing exactly this: set the target high enough to bite. Our first attempt targeted
+so little movement that the term sat at 0.975 — already satisfied by the flatness it was meant to
+fix, and therefore pulling for nothing.
+
+### Naturalness: reward the imperfections, and make the speed penalty two-sided
+
+Nothing in the original scoring wanted a filler word, a restart or an audible breath, so none
+appeared. Shipped parts averaged disfluency **2.31** where VoiceNet level 3 is defined as *"a
+standard, entirely natural amount of fillers … the exact baseline of unscripted, everyday human
+processing noise"*, and **32 %** sat below 2.0 — audibly cleaner than a real person. The listener
+report was *"not with the imperfections that a real person would have"*.
+
+Add an explicit naturalness term:
+
+| component | target | notes |
+|---|---|---|
+| disfluency | full credit in **2.5–4.0** | below 1.8 reads as robotic; above 4.0 is a mess |
+| words per second | full credit in **2.4–3.3** | penalise **both** sides |
+
+**The two-sided band is the part to get right.** Our first version penalised only fast delivery
+and gave arbitrarily slow speech full credit — which tripled the share of unnaturally slow parts
+(3 % → 11 % below 2 words/second) in a single run. Both a listener and a model A/B comparison then
+preferred the *faster* take. Dragging is a failure mode in its own right, not the safe direction.
+
 ### The governing rule
 
 > Prosody must **either flow smoothly** from part to part, **or change for a stated reason**.
@@ -285,6 +329,64 @@ and state the reason in the delivery cue so the writing and the numbers agree.
 
 ---
 
+## 8b. Do not let the run quietly stop exploring
+
+Two defects that a listener reports as *"the takes all sound the same"*, and that no metric flags,
+because nothing is wrong with any individual take.
+
+**Seed the task, not just the round and part.** A seed like
+`7000 + 100*rnd + 10*pi` gives every challenge in a fleet the *same* seed for the same slot. That
+does not produce the same voice (measured: mean ECAPA 0.344 between tasks), but it correlates the
+sampling streams, so the same burst opens the same part across unrelated conditions and
+best-of-N explores less than it appears to.
+
+```python
+sd = (zlib.crc32(task.encode()) % 100000) * 1000 + 7000 + 100*rnd + 10*pi + 3331*att
+```
+
+Give sub-batches a well-separated offset too — `seed + 7919*batch_index`, not `seed + i`.
+
+**Select the top-K for spread, not for rank.** The K highest-scoring assemblies over a
+combinatorial space are near-duplicates by construction: neighbouring combinations differ in one
+part index, so three "different" takes share two thirds of the same audio files. Measured over 27
+rounds, ranks 1-2-3 differed in a mean of **1.15** of 3 part slots. Greedy max-marginal-relevance
+— best score minus an overlap penalty — raises that to **1.79** using takes that were already
+rendered.
+
+This generalises well past TTS: **any best-of-N ranker that hands a human "the top K" from a
+combinatorial space should select them for diversity.**
+
+## 8c. How to not fool yourself when measuring any of this
+
+Four failures from building the above. Every one produced output that looked completely valid,
+which is why they are worth naming.
+
+**1. Optimising a proxy gives you the proxy, not the goal.** The identity threshold was raised
+because stricter identity was wanted. It delivered exactly that number — and cost expressiveness,
+because the metric mildly prefers flat delivery. Before tightening any filter, ask what *else*
+that metric rewards.
+
+**2. A cache keyed on a filename that does not encode its contents is a trap.** An A/B audio
+builder skipped rewriting a file if one already existed. When the pair *selection* changed, the
+audio did not, and every index silently pointed at the wrong clip. A model then judged the old
+pairs while the results were labelled with the new metadata. **The analysis was coherent, and
+every number in it was wrong — including two that reversed on rerun.** Either rewrite always, or
+name files by a hash of their content.
+
+**3. A ranking that can degrade to the identity permutation should be asserted against.** A
+skipped scoring step left every candidate tied; the stable sort preserved input order, and "top 3
+of 64" became "the first 3". Three items flagged, ranks filled 0…63, schema valid. A real ranking
+is a permutation — check that it is one.
+
+**4. `df.<name>` where the name is also a DataFrame method.** `d.rank != 0` compares the *bound
+method* to 0, yielding the scalar `True`, and `d[True]` raises `KeyError: True`. This has now cost
+time four separate times with `.take`, `.diff`, `.tail` and `.rank`. **Index columns with brackets
+in analysis code.**
+
+And one about evidence: when a model-judged result and a human listener disagree, **the listener
+is the ground truth**, but check the plumbing before believing either — twice today a striking
+result turned out to be a mislabelled join rather than a finding.
+
 ## 9. Checklist
 
 - [ ] Part 0 generated with **no** reference; best candidate saved as the anchor
@@ -292,12 +394,13 @@ and state the reason in the delivery cue so the writing and the numbers agree.
 - [ ] Continuation `text` carries the **cumulative** script; output **not** trimmed
 - [ ] Explicit "same speaker continues" sentence appended to `GENERAL`; voice description identical across parts
 - [ ] ECAPA similarity measured against the anchor for every candidate
-- [ ] Part **regenerated** if no candidate reaches `spk_target` (0.82)
-- [ ] VC applied only below threshold, kept only if similarity ↑ **and** DNSMOS not ↓
-- [ ] Takes below `spk_floor` (0.68) rejected before ranking
+- [ ] Part **regenerated** if no candidate reaches `spk_target` (**0.58**, not 0.82)
+- [ ] VC applied only below **0.45**, kept only if similarity ↑ **and** DNSMOS not ↓
+- [ ] Takes below `spk_floor` (**0.40**, not 0.68) rejected before ranking
+- [ ] Identity **ranked** with meaningful weight (~0.19) but **never gated at a high threshold**
 - [ ] `tempo_target` / `chunk_target` declared per part; `prosody_turn` set only where the change is intended
-- [ ] Seams scored: smooth where undeclared, actually moving where declared
-- [ ] Words/sec checked against the ~4.0 ceiling
+- [ ] Seams penalised only for a **lurch** (>2.5 points); variation **rewarded** separately
+- [ ] Naturalness scored: disfluency in **2.5–4.0**, words/sec in **2.4–3.3** (penalise BOTH sides)
 - [ ] Non-verbal parts sized by duration, not word count
 - [ ] Seams crossfaded and **level-matched** to part 0
 - [ ] Assemblies ranked as wholes, with speaker similarity (mean **and min**), arc and prosody in the score
