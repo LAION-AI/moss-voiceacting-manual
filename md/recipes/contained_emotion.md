@@ -303,7 +303,9 @@ first generation. **The run completed — measured results, recipe tables and co
 **The scale-up ran.** One `gpt-5.4` agent per emotion built the full 2×2 under the Gemini naturalness
 judge with the §4 target-band moderate fitness; outputs in `contained_all40/` (analysis:
 `contained_all40/analyze40.py` → `findings40.json`). **26 emotions ran ≥8 generations (solid); 14 ran
-3–7 (thin — ⚠️ tagged below).** The round-5 **score-parse bug is fixed in this run** (the logged
+3–7 (thin).** *Those 14 thin emotions + Fear (15 total) were then **re-run much deeper** — see the
+["Deep re-run" subsection](#deep-re-run-aug-2026--15-emotions-with-real-paired-audio-vuln) below; the
+tables further down now carry their upgraded recipes and a **real, measured** ΔVULN.* The round-5 **score-parse bug is fixed in this run** (the logged
 `score_0_10` equals the re-parsed value on all 383 verdicts; real scores 2–8, distribution centred 3–5
 with a tail to 8 and one 10). Numbers below are the best intelligible cohort per cell (mean-of-8,
 WER<0.35).
@@ -317,11 +319,13 @@ WER<0.35).
   broad band of natural held-back reads (≥8/10 on Amusement, Awe (10), Bitterness, Concentration,
   Contemplation, Contentment, Elation, Emotional Numbness, Hope, Impatience, Interest, Relief, Sexual
   Lust, Sourness, Thankfulness).
-- **Moderate contains; intense flattens — on all five families.** At moderate intensity, suppression
-  *preserves* the emotion (cohort-mean emotion rose under masking: anger Δ **+0.31** supp−free,
-  cognitive **+0.26**). At intense intensity the same masking *erodes* it (cognitive **−0.35**, sadness
-  **−0.27**, anger **−0.22**). Strong-feeling-held-hard is still the frontier; ship held-back takes at
-  **moderate**.
+- **"Moderate contains; intense flattens" — held on the emotion-preservation numbers, but did NOT
+  survive paired-audio measurement.** On the sparse first pass, moderate suppression looked like it
+  *preserved* the emotion (anger Δ **+0.31** supp−free, cognitive **+0.26**) while intense masking
+  *eroded* it. **The deep re-run (below) overturns the clean version of this rule:** with real paired
+  VULN, several emotions mask *better at intense* (cognitive Emotional Numbness, Intoxication), and
+  several *reverse at moderate* (Sadness, Pride, Distress read **more** vulnerable held-back, not less).
+  The honest takeaway is now **emotion-specific**, not a universal moderate/intense law.
 - **The target band worked but exposed the detector's floor.** Rewarding the mid-band stopped the
   collapse-to-intense, but most of the **36 extrapolated** emotions read *weaker* on the 99-vec than
   their four anchors: many "moderate" cohorts under-shot the band into near-erasure, and the
@@ -329,17 +333,41 @@ WER<0.35).
   joy 7/19; anger 5/16). **Recalibrate the intense floor and band per emotion from gen-0** — the
   family-extrapolated bands are a starting point, not ground truth, for low-arousal / cognitive /
   sadness emotions.
-- **The audio VULN gap is the weak link here.** `samples/` was disk-trimmed, so VULN survives only in
-  the sparse hall-of-fame clips (unmatched winners, not paired takes). The suppressed−free VULN gap did
-  **not** robustly reproduce across the 40 (only the fear family leaned right, 5/6 emotions, by ~−0.05).
-  **Trust the recipe + emotion-preservation + naturalness, not the audio ΔVULN.** Three matched
-  survivors that *do* show the drop cleanly — Bitterness (anger), Fear (fear), Concentration (cognitive)
-  — are on the [results page](https://laion-ai.github.io/emotion-voice-conditions/contained.html#).
+- **The audio VULN gap was the weak link in this pass — now fixed for 15 emotions.** In the all-40 run
+  `samples/` was disk-trimmed, so VULN survived only in the sparse hall-of-fame clips (unmatched
+  winners, not paired takes); the suppressed−free gap did **not** robustly reproduce across the 40 (all
+  |Δ|<0.2, essentially noise). **The deep re-run preserved the cohort-winner audio**, so for those 15 we
+  re-scored 1,878 clips and computed a *real* paired ΔVULN — see below. For the other 25, still **trust
+  the recipe + emotion-preservation + naturalness, not the audio ΔVULN.**
 
-**Still needs deeper runs (thin data, <8 gens):** Helplessness (3), Intoxication (4), Pride (4),
-Distress (5), Doubt (5), Longing (5), Affection (6), Emotional Numbness (6), Fatigue/Exhaustion (6),
-Pain (6), Sadness (6), Confusion (7), Embarrassment (7), Infatuation (7). Their recipes below are
-provisional.
+### Deep re-run (Aug 2026) — 15 emotions with real paired-audio VULN
+
+The 14 thin emotions + Fear were re-run deeper (empty-reply LLM bug fixed, budget 130, **7–27
+generations** each) with a harvester that **preserved the cohort-winner audio** (66–242 clips/emotion,
+1,878 total). We re-scored every clip with the RAW 99-vec and computed **ΔVULN = suppressed-cohort −
+free-cohort mean VULN**, separately at moderate and intense — the paired measurement the first pass
+could not do. Analysis: `contained_deep/analyze_deep.py` → `findings_deep.json`. The re-parsed Gemini
+score matched the logged one on all 172 verdicts (the parser fix predates this run). **Their tables
+below are upgraded** (no longer ⚠️thin; ΔVULN cells tagged `(paired)`).
+
+**What reproduced, measured (ΔVULN<0 = held-back is *less* vulnerable = masking):**
+
+| verdict | emotions | reading |
+|---|---|---|
+| **masks cleanly** (VULN drops, emotion kept) | **Fatigue Exhaustion** (both, −0.17/−0.27, emotion *rises*), **Embarrassment** (both, −0.11/−0.25), **Pain** (mod −0.18) | the honest wins — light `vn_VULN_low` over the emotion, restraint prompt-led |
+| **masks at *intense* only** | **Emotional Numbness** (−0.55), **Intoxication** (−1.05), **Helplessness** (−0.23) | cognitive/low-arousal — inward containment reads best when the feeling is strong |
+| **reverses** (held-back reads *more* vulnerable, ΔVULN up to **+1.3**) | **Sadness** (+1.29/+0.45), **Pride** (+1.09/+1.14), **Distress** (+0.43/+0.82), **Affection** (+0.18/+0.59) | vulnerability *is* the feeling here; a "held-back" recipe cannot lower it |
+| **erasure, not masking** (VULN drops only because emotion drops) | **Fear** (int −0.28, Δemo −0.32), **Doubt** (int −0.75, Δemo −0.56) | the mask deletes the feeling; ship the open take |
+| **flat / no signal** | **Confusion** (±0.14), **Infatuation** (mod −0.05) | within noise |
+
+**Confirmed vs. overturned vs. first pass:** *confirmed* — Sadness resists (now shown as an actual
+**reversal**, not just erasure), Embarrassment's mild mask, Fear reads acted and does not mask at
+moderate. *Overturned* — Distress, Pride, Affection (first pass hinted mask/flat; measured they
+**reverse**); Fatigue/Exhaustion, Pain, Emotional Numbness, Intoxication (first pass had no paired VULN;
+measured they **do** mask — the clearest new wins). The first pass's tiny ΔVULN estimates (all |Δ|<0.2)
+were noise; several signs flipped once real audio was used. **Still low-confidence** even after the
+re-run: the *intense-suppressed* cell stayed sparse for **Doubt** (1 surviving pair), **Intoxication**
+(3), **Longing** (5), so those intense verdicts are directional only.
 
 ### Anger family — hot, low baseline VULN — masks cleanly on the numbers
 
@@ -386,30 +414,30 @@ Members (7): Confusion, Distress, Doubt, Embarrassment, Fear, Helplessness, Sham
 
 | emotion | gens | cell | recipe (over `human@1.0`) | emo | nat | GENU | ΔVULN(hof) |
 |---|--:|---|---|--:|--:|--:|--:|
-| **Confusion** ⚠️thin | 7 | moderate/free | `char_genuine/human`@1 + `Confusion`@1.08 + `vn_VULN_high`@0.14 + `vn_COGL_high`@0.07 + `vn_S_CASU_high`@0.14 | 1.83 | – | 0.10 | +0.06 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Confusion`@0.9 + `vn_VULN_low`@0.04 + `vn_COGL_high`@0.12 + `vn_BRGT_high`@0.03 + `vn_CLRT_high`@0.03 + `vn_S_CONV_high`@0.1 | 1.47 | 3 | 0.15 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Confusion`@1.12 + `vn_VULN_high`@0.2 + `vn_S_CONV_high`@0.03 + `vn_COGL_high`@0.02 | 1.81 | 3 | 0.11 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Confusion`@0.94 + `vn_VULN_low`@0.04 + `vn_COGL_high`@0.14 + `vn_DFLU_high`@0.03 | 2.03 | 3 | 0.08 |  |
-| **Distress** ⚠️thin | 5 | moderate/free | `char_genuine/human`@1 + `Distress`@1.2 + `vn_VULN_high`@0.24 | -0.50 | 3 | 0.19 | -0.07 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Distress`@1.15 + `vn_VULN_low`@0.06 + `vn_COGL_high`@0.14 + `vn_BRGT_high`@0.06 + `vn_CLRT_high`@0.05 | -0.47 | 3 | 0.12 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Distress`@1.35 + `vn_VULN_high`@0.28 + `vn_BRGT_high`@0.05 | -0.36 | 3 | 0.25 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Distress`@0.9 + `vn_VULN_low`@0.04 + `vn_COGL_high`@0.1 + `vn_BRGT_high`@0.06 + `vn_CLRT_high`@0.05 | -0.15 | 3 | 0.11 |  |
-| **Doubt** ⚠️thin | 5 | moderate/free | `char_genuine/human`@1 + `Doubt`@0.95 + `vn_VULN_high`@0.24 | -0.18 | 3 | 0.15 | -0.09 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Doubt`@0.7 + `vn_VULN_low`@0.09 + `vn_COGL_high`@0.07 + `vn_BRGT_high`@0.06 + `vn_CLRT_high`@0.04 | 0.29 | 3 | 0.15 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Doubt`@1.05 + `vn_VULN_high`@0.14 + `vn_COGL_high`@0.08 + `vn_STNC_high`@0.06 | 0.18 | 3 | 0.17 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Doubt`@0.78 + `vn_VULN_low`@0.12 + `vn_COGL_high`@0.1 + `vn_BRGT_high`@0.08 + `vn_CLRT_high`@0.05 + `vn_STNC_high`@0.12 | -0.34 | 3 | 0.12 |  |
-| **Embarrassment** ⚠️thin | 7 | moderate/free | `char_genuine/human`@1 + `Embarrassment`@0.54 + `vn_VULN_high`@0.08 + `vn_WARM_high`@0.08 | 2.63 | 4 | 0.19 | -0.10 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Embarrassment`@0.5 + `vn_VULN_low`@0.05 + `vn_COGL_high`@0.05 + `vn_WARM_high`@0.1 + `vn_S_CONV_high`@0.02 | 2.67 | 4 | 0.22 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Embarrassment`@1.3 + `vn_VULN_high`@0.32 + `vn_BRGT_high`@0.05 | 3.77 | 4 | 0.19 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Embarrassment`@0.9 + `vn_VULN_low`@0.1 + `vn_COGL_high`@0.1 + `vn_BRGT_high`@0.06 + `vn_CLRT_high`@0.05 + `vn_WARM_high`@0.06 | 3.03 | 4 | 0.20 |  |
-| **Fear** | 8 | moderate/free | `char_genuine/human`@1 + `Fear`@1 + `vn_VULN_high`@0.24 | 1.28 | 4 | 0.24 | -0.03 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Fear`@1.08 + `vn_VULN_low`@0.03 + `vn_COGL_high`@0.08 + `vn_CLRT_high`@0.01 | 1.19 | 4 | 0.32 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Fear`@1.12 + `vn_VULN_high`@0.24 | 1.02 | 4 | 0.21 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Fear`@1.1 + `vn_VULN_low`@0.02 + `vn_COGL_high`@0.08 | 1.05 | 6 | 0.14 |  |
-| **Helplessness** ⚠️thin | 3 | moderate/free | `char_genuine/human`@1 + `Helplessness`@0.82 + `vn_VULN_high`@0.14 | -0.72 | 3 | 0.12 | -0.06 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Helplessness`@0.7 + `vn_VULN_low`@0.09 + `vn_COGL_high`@0.07 + `vn_BRGT_high`@0.06 + `vn_CLRT_high`@0.04 | -0.80 | 3 | 0.12 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Helplessness`@1.3 + `vn_VULN_high`@0.34 + `vn_BRGT_high`@0.05 | -0.79 | 2 | 0.08 |  |
-|  |  | intense/suppressed | — | | | |  |
+| **Confusion** | 12 | moderate/free | `char_genuine/human`@1 + `Confusion`@0.9 + `vn_VULN_high`@0.26 + `vn_COGL_high`@0.04 | 1.37 | 4 | 0.08 | **-0.01** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Confusion`@0.86 + `vn_VULN_low`@0.07 + `vn_COGL_high`@0.07 + `vn_BRGT_high`@0.04 + `vn_CLRT_high`@0.03 + `vn_S_CONV_high`@0.07 | 1.45 | 4 | 0.08 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Confusion`@1.05 + `vn_VULN_high`@0.2 | 2.08 | 4 | 0.10 | **-0.14** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Confusion`@0.78 + `vn_VULN_low`@0.08 + `vn_COGL_high`@0.08 + `vn_BRGT_high`@0.05 + `vn_CLRT_high`@0.03 + `vn_S_CONV_high`@0.06 | 1.80 | – | 0.18 |  |
+| **Distress** | 17 | moderate/free | `char_genuine/human`@1 + `Distress`@1.28 + `vn_VULN_high`@0.32 + `vn_BRGT_high`@0.08 + `vn_CLRT_high`@0.04 | 0.00 | 6 | 0.19 | **+0.43** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Distress`@0.94 + `vn_VULN_low`@0.06 + `vn_COGL_high`@0.05 | 1.05 | 6 | 0.16 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Distress`@1.12 + `vn_VULN_high`@0.3 | 1.44 | 4 | 0.17 | **+0.82** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Distress`@1.04 + `vn_VULN_low`@0.03 + `vn_COGL_high`@0.05 + `vn_RESP_high`@0.05 + `vn_CLRT_high`@0.03 | 1.86 | – | 0.20 |  |
+| **Doubt** | 8 | moderate/free | `char_genuine/human`@1 + `vn_COGL_high`@0.6 + `vn_VULN_high`@0.45 + `vn_S_CONV_high`@0.35 | 1.74 | 7 | 0.40 | **-0.03** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Doubt`@0.66 + `vn_VULN_low`@0.08 + `vn_COGL_high`@0.1 + `vn_BRGT_high`@0.05 + `vn_CLRT_high`@0.05 + `vn_STNC_high`@0.15 | 0.81 | 4 | 0.12 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Doubt`@1.35 + `Fear`@0.24 + `vn_VULN_high`@0.18 + `vn_COGL_high`@0.1 + `vn_STNC_high`@0.1 | 0.70 | 4 | 0.17 | **-0.75** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Doubt`@0.88 + `Fear`@0.16 + `vn_VULN_low`@0.08 + `vn_COGL_high`@0.18 + `vn_BRGT_high`@0.09 + `vn_CLRT_high`@0.06 + `vn_STNC_high`@0.22 | 0.01 | – | 0.11 |  |
+| **Embarrassment** | 10 | moderate/free | `char_genuine/human`@1 + `Embarrassment`@0.55 + `vn_VULN_high`@0.12 + `vn_WARM_high`@0.1 | 0.61 | 4 | 0.24 | **-0.11** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Embarrassment`@0.82 + `vn_VULN_low`@0.03 + `vn_COGL_high`@0.02 + `vn_WARM_high`@0.12 | 0.94 | 3 | 0.15 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Embarrassment`@1.4 + `vn_VULN_high`@0.36 + `vn_WARM_high`@0.1 | 0.22 | 4 | 0.13 | **-0.25** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Embarrassment`@0.84 + `vn_VULN_low`@0.03 + `vn_COGL_high`@0.03 + `vn_WARM_high`@0.1 + `vn_S_CONV_high`@0.05 | -0.02 | – | 0.21 |  |
+| **Fear** | 8 | moderate/free | `char_genuine/human`@1 + `Fear`@1.22 + `vn_VULN_high`@0.34 + `vn_ARSH_high`@0.08 + `vn_BRGT_high`@0.04 | 1.65 | 4 | 0.14 | **+0.17** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Fear`@0.82 + `vn_VULN_low`@0.16 + `vn_COGL_high`@0.09 + `vn_BRGT_high`@0.05 + `vn_CLRT_high`@0.05 | 0.62 | 4 | 0.14 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Fear`@1.2 + `vn_VULN_high`@0.32 + `vn_ARSH_high`@0.06 | 1.70 | 3 | 0.16 | **-0.28** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Fear`@0.92 + `vn_VULN_low`@0.18 + `vn_COGL_high`@0.12 + `vn_BRGT_high`@0.04 + `vn_CLRT_high`@0.05 | 1.61 | 3 | 0.16 |  |
+| **Helplessness** | 10 | moderate/free | `char_genuine/human`@1 + `Helplessness`@0.74 + `vn_VULN_high`@0.22 + `vn_RESP_high`@0.06 + `vn_BRGT_high`@0.03 | 1.74 | 5 | 0.22 | **+0.18** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Helplessness`@0.68 + `vn_VULN_low`@0.04 + `vn_COGL_high`@0.2 + `vn_RESP_high`@0.05 | 1.62 | 5 | 0.24 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Helplessness`@0.58 + `vn_VULN_high`@0.22 + `vn_RESP_high`@0.05 + `vn_TEMP_high`@0.04 | 2.41 | 8 | 0.19 | **-0.23** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Helplessness`@0.62 + `vn_VULN_low`@0.08 + `vn_COGL_high`@0.16 + `vn_RESP_high`@0.09 + `vn_S_CONV_high`@0.04 | 2.11 | 7 | 0.22 |  |
 | **Shame** | 9 | moderate/free | `char_genuine/human`@1 + `Shame`@1.15 + `vn_VULN_high`@0.3 | -0.64 | – | 0.22 | n/a |
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Shame`@0.78 + `vn_VULN_low`@0.02 + `vn_COGL_high`@0.03 | -0.54 | 3 | 0.07 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `Shame`@1.02 + `vn_VULN_high`@0.32 | -0.36 | 4 | 0.09 |  |
@@ -429,22 +457,22 @@ Members (6): Contemplation, Disappointment, Fatigue Exhaustion, Longing, Pain, S
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Disappointment`@0.96 + `vn_VULN_low`@0.008 + `vn_RCQL_high`@0.05 | 0.71 | 4 | 0.12 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `Disappointment`@0.86 + `vn_VULN_high`@0.15 | 1.08 | 5 | 0.11 |  |
 |  |  | intense/suppressed | `char_genuine/human`@1 + `Disappointment`@0.96 + `vn_VULN_low`@0.006 | 0.53 | 4 | 0.15 |  |
-| **Fatigue Exhaustion** ⚠️thin | 6 | moderate/free | `char_genuine/human`@1 + `Fatigue_Exhaustion`@1.25 + `vn_VULN_high`@0.18 | -0.25 | 3 | 0.19 | n/a |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Fatigue_Exhaustion`@0.7 + `vn_VULN_low`@0.03 + `Concentration`@0.04 | – | 3 | 0.22 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Fatigue_Exhaustion`@1.15 + `vn_VULN_high`@0.18 | 0.64 | 4 | 0.13 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Fatigue_Exhaustion`@0.55 + `vn_VULN_low`@0.01 | 0.21 | 3 | 0.07 |  |
-| **Longing** ⚠️thin | 5 | moderate/free | `char_genuine/human`@1 + `Longing`@1 + `vn_VULN_high`@0.22 | 0.51 | 4 | 0.13 | +0.13 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Longing`@0.95 + `vn_VULN_low`@0.02 + `Concentration`@0.03 | 0.64 | 4 | 0.07 |  |
-|  |  | intense/free | — | | | |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Longing`@1.15 + `vn_VULN_low`@0.03 + `Concentration`@0.04 | 0.21 | 4 | 0.07 |  |
-| **Pain** ⚠️thin | 6 | moderate/free | `char_genuine/human`@1 + `Pain`@0.9 + `vn_VULN_high`@0.22 | -0.56 | 2 | 0.16 | n/a |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Pain`@1 + `vn_VULN_low`@0.04 + `Concentration`@0.06 | -0.55 | 2 | 0.11 |  |
-|  |  | intense/free | — | | | |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Pain`@1.15 + `vn_VULN_low`@0.02 + `vn_TENS_high`@0.18 + `Concentration`@0.03 | -0.25 | 2 | 0.18 |  |
-| **Sadness** ⚠️thin | 6 | moderate/free | `char_genuine/human`@1 + `Sadness`@1 + `vn_VULN_high`@0.14 + `vn_RESP_high`@0.12 | 0.11 | 5 | 0.15 | -0.19 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Sadness`@1.12 + `vn_VULN_low`@0.03 + `Concentration`@0.02 + `vn_RESP_high`@0.12 | -0.60 | 3 | 0.12 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Sadness`@1.25 + `vn_VULN_high`@0.18 | -0.87 | 3 | 0.11 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Sadness`@0.96 + `vn_VULN_low`@0.05 + `Concentration`@0.05 | -0.71 | 4 | 0.12 |  |
+| **Fatigue Exhaustion** | 27 | moderate/free | `char_genuine/human`@1 + `Fatigue_Exhaustion`@0.45 + `vn_VULN_high`@0.15 | 2.16 | 7 | 0.35 | **-0.17** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Fatigue_Exhaustion`@0.55 + `vn_VULN_low`@0.45 | 2.45 | 6 | 0.25 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Fatigue_Exhaustion`@0.5 + `vn_VULN_high`@0.25 | 2.38 | 4 | 0.03 | **-0.27** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Fatigue_Exhaustion`@0.75 + `vn_VULN_low`@0.45 + `Concentration`@0.1 | 2.35 | 8 | 0.17 |  |
+| **Longing** | 7 | moderate/free | `char_genuine/human`@1 + `Longing`@0.82 + `vn_VULN_high`@0.08 | 1.58 | 5 | 0.06 | **+0.12** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Longing`@0.64 + `vn_VULN_low`@0.003 | 1.86 | 3 | 0.15 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Longing`@0.74 + `vn_VULN_high`@0.08 | 1.44 | – | 0.04 | **-0.49** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Longing`@0.86 + `vn_VULN_low`@0.008 + `Concentration`@0.02 | 1.57 | – | 0.03 |  |
+| **Pain** | 10 | moderate/free | `char_genuine/human`@1 + `Pain`@1 + `vn_VULN_high`@0.05 | -0.01 | 3 | 0.14 | **-0.18** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Pain`@0.85 + `vn_VULN_low`@0.01 + `vn_TENS_high`@0.1 | -0.01 | 4 | 0.15 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Pain`@1 + `Fear`@0.1 + `Sadness`@0.06 + `vn_VULN_high`@0.04 | 2.18 | 9 | 0.25 | **-0.01** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Pain`@0.9 + `vn_VULN_low`@0.004 + `vn_TENS_high`@0.1 | 2.39 | – | 0.15 |  |
+| **Sadness** | 24 | moderate/free | `char_genuine/human`@1 + `Sadness`@1.2 + `vn_VULN_high`@0.18 | 1.01 | 7 | 0.14 | **+1.29** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Sadness`@1.05 + `vn_VULN_low`@0.03 + `Concentration`@0.05 | 1.60 | 6 | 0.15 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Sadness`@1.38 + `vn_VULN_high`@0.14 | 2.14 | 4 | 0.13 | **+0.45** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Sadness`@1 + `vn_VULN_low`@0.02 + `Concentration`@0.03 | 2.05 | – | 0.13 |  |
 
 ### Joy family — positive, laugh-entangled — moderate works, intense flattens
 
@@ -452,10 +480,10 @@ Members (13): Affection, Amusement, Contentment, Elation, Hope Enthusiasm Optimi
 
 | emotion | gens | cell | recipe (over `human@1.0`) | emo | nat | GENU | ΔVULN(hof) |
 |---|--:|---|---|--:|--:|--:|--:|
-| **Affection** ⚠️thin | 6 | moderate/free | `char_genuine/human`@1 + `Affection`@0.14 + `vn_VULN_high`@0.08 + `vn_WARM_high`@0.16 | -0.64 | 4 | 0.04 | +0.02 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Affection`@0.18 + `vn_VULN_low`@0.05 + `vn_WARM_high`@0.18 | -0.64 | 4 | 0.12 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Affection`@0.3 + `vn_VULN_high`@0.16 + `vn_WARM_high`@0.14 | -0.64 | 4 | 0.12 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Affection`@0.16 + `vn_VULN_low`@0.05 + `vn_WARM_high`@0.16 | -0.64 | 4 | 0.09 |  |
+| **Affection** | 15 | moderate/free | `char_genuine/human`@1 + `Affection`@0.18 + `vn_WARM_high`@0.22 + `vn_VULN_high`@0.05 | 0.01 | 6 | 0.08 | **+0.18** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Affection`@0.22 + `vn_WARM_high`@0.18 + `vn_VULN_low`@0.12 | 0.01 | 8 | 0.10 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Affection`@0.34 + `vn_WARM_high`@0.08 + `vn_VULN_high`@0.04 | 0.45 | 7 | 0.12 | **+0.59** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Affection`@0.36 + `vn_VULN_low`@0.03 + `vn_S_CASU_high`@0.08 + `vn_WARM_high`@0.02 | 1.07 | – | 0.16 |  |
 | **Amusement** | 17 | moderate/free | `char_genuine/human`@1 + `Amusement`@1.05 + `vn_VULN_high`@0.3 + `vn_WARM_high`@0.18 + `vn_ARSH_high`@0.12 | 2.23 | 3 | 0.14 | n/a |
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Amusement`@0.48 + `vn_VULN_low`@0.08 | 1.61 | 6 | 0.17 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `Amusement`@0.95 + `vn_VULN_high`@0.14 + `vn_WARM_high`@0 + `vn_ARSH_high`@0.08 | 1.76 | 3 | 0.11 |  |
@@ -472,18 +500,18 @@ Members (13): Affection, Amusement, Contentment, Elation, Hope Enthusiasm Optimi
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `vn_VULN_low`@0.1 + `vn_WARM_high`@0.18 + `Hope_Enthusiasm_Optimism`@0.08 | 1.78 | 8 | 0.22 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `vn_VULN_high`@0.25 + `vn_WARM_high`@0.2 | -0.15 | 7 | 0.10 |  |
 |  |  | intense/suppressed | `char_genuine/human`@1 + `vn_VULN_low`@0.14 + `vn_WARM_high`@0.18 | 2.31 | 5 | 0.22 |  |
-| **Infatuation** ⚠️thin | 7 | moderate/free | `char_genuine/human`@1 + `Infatuation`@0.44 + `vn_VULN_high`@0.22 + `vn_WARM_high`@0.14 + `vn_S_CASU_high`@0.12 | – | 5 | 0.03 | n/a |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Infatuation`@0.22 + `vn_VULN_low`@0.22 + `vn_VALN_high`@0.12 | -0.73 | 4 | 0.09 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Infatuation`@0.92 + `vn_VULN_high`@0.46 + `vn_WARM_high`@0.06 | -0.73 | 5 | 0.18 |  |
-|  |  | intense/suppressed | — | | | |  |
+| **Infatuation** | 14 | moderate/free | `char_genuine/human`@1 + `Infatuation`@0.82 + `vn_VULN_high`@0.06 + `vn_WARM_high`@0.18 | 2.24 | 5 | 0.11 | **-0.05** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Infatuation`@0.34 + `vn_VULN_low`@0.03 + `vn_WARM_high`@0.2 + `vn_S_CASU_high`@0.05 | 2.31 | 8 | 0.16 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Infatuation`@0.9 + `vn_VULN_high`@0.05 + `vn_WARM_high`@0.12 | 2.71 | 9 | 0.09 | **+0.24** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Infatuation`@0.44 + `vn_VULN_low`@0.03 + `vn_WARM_high`@0.16 + `vn_S_CASU_high`@0.04 | 1.59 | 8 | 0.08 |  |
 | **Pleasure Ecstasy** | 9 | moderate/free | `char_genuine/human`@1 + `Pleasure_Ecstasy`@0.92 + `vn_VULN_high`@0.2 + `vn_WARM_high`@0.15 | 1.14 | 4 | 0.23 | n/a |
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Pleasure_Ecstasy`@1 + `vn_VULN_low`@0.12 + `vn_WARM_high`@0.16 | 0.77 | 6 | 0.17 |  |
 |  |  | intense/free | — | | | |  |
 |  |  | intense/suppressed | — | | | |  |
-| **Pride** ⚠️thin | 4 | moderate/free | `char_genuine/human`@1 + `Pride`@0.75 + `vn_VULN_high`@0.22 + `vn_WARM_high`@0.14 + `vn_S_CONV_high`@0.08 | -0.56 | 4 | 0.12 | +0.01 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Pride`@0.32 + `vn_VULN_low`@0.14 + `vn_WARM_high`@0.18 + `vn_S_CONV_high`@0.1 | -0.57 | 4 | 0.19 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Pride`@1.45 + `vn_VULN_high`@0.22 + `vn_WARM_high`@0.08 | -0.40 | 4 | 0.13 |  |
-|  |  | intense/suppressed | — | | | |  |
+| **Pride** | 13 | moderate/free | `char_genuine/human`@1 + `Pride`@0.18 + `vn_VULN_high`@0.12 + `vn_S_CONV_high`@0.3 + `vn_BRGT_high`@0.08 | 1.30 | 9 | 0.42 | **+1.09** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Pride`@0.28 + `vn_VULN_low`@0.16 + `vn_WARM_high`@0.1 + `vn_TEMP_low`@0.25 | 1.40 | 9 | 0.29 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Pride`@1.15 + `vn_VULN_high`@0.2 + `vn_WARM_high`@0.08 | 1.56 | 6 | 0.35 | **+1.14** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Pride`@0.75 + `vn_VULN_low`@0.18 + `vn_WARM_high`@0.14 + `vn_S_CONV_high`@0.1 | 1.70 | 9 | 0.34 |  |
 | **Relief** | 8 | moderate/free | `char_genuine/human`@1 + `Relief`@0.82 + `vn_WARM_high`@0.06 + `vn_VULN_high`@0.06 | -0.75 | 3 | 0.39 | -0.05 |
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Relief`@0.35 + `vn_VULN_low`@0.05 + `vn_WARM_high`@0.18 | -0.45 | 5 | 0.05 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `Relief`@1.2 + `vn_VULN_high`@0.2 + `vn_WARM_high`@0.12 | -0.26 | 5 | 0.09 |  |
@@ -523,18 +551,18 @@ Members (6): Astonishment Surprise, Awe, Concentration, Emotional Numbness, Inte
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Concentration`@0.34 + `vn_VULN_low`@0.05 + `vn_S_CONV_high`@0.14 + `vn_RESP_high`@0.03 + `vn_DFLU_high`@0.03 | 0.46 | 8 | 0.15 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `Concentration`@0.82 + `vn_VULN_high`@0.14 + `vn_S_CONV_high`@0.06 | 0.22 | 5 | 0.21 |  |
 |  |  | intense/suppressed | `char_genuine/human`@1 + `Concentration`@0.52 + `vn_VULN_low`@0.06 + `vn_S_CONV_high`@0.1 + `vn_RESP_high`@0.03 + `vn_DFLU_high`@0.04 + `vn_ROUG_high`@0.03 + `vn_COGL_high`@0.05 | 0.18 | 8 | 0.18 |  |
-| **Emotional Numbness** ⚠️thin | 6 | moderate/free | `char_genuine/human`@1 + `Emotional_Numbness`@0.43 + `vn_VULN_high`@0.08 | 1.31 | 7 | 0.07 | +0.04 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Emotional_Numbness`@0.56 + `vn_FOCS_high`@0.08 + `vn_VULN_low`@0.03 | 0.68 | 6 | 0.13 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Emotional_Numbness`@0.52 + `vn_VULN_high`@0.1 | 1.69 | 6 | 0.04 |  |
-|  |  | intense/suppressed | `char_genuine/human`@1 + `Emotional_Numbness`@0.74 + `vn_FOCS_high`@0.06 | 1.03 | 7 | 0.11 |  |
+| **Emotional Numbness** | 14 | moderate/free | `char_genuine/human`@1 + `Emotional_Numbness`@0.08 + `vn_VULN_high`@0.03 | 1.33 | 8 | 0.07 | **-0.01** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Emotional_Numbness`@0.18 + `vn_FOCS_high`@0.06 | 1.00 | 8 | 0.06 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Emotional_Numbness`@0.3 + `vn_VULN_high`@0.04 | 1.38 | – | 0.18 | **-0.55** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Emotional_Numbness`@0.34 + `vn_FOCS_high`@0.05 | 0.77 | 4 | 0.07 |  |
 | **Interest** | 41 | moderate/free | `char_genuine/human`@1 + `Interest`@0.98 + `vn_VULN_high`@0.08 + `vn_ESTH_high`@0.06 + `vn_S_CONV_high`@0.05 | 0.59 | 5 | 0.55 | n/a |
 |  |  | moderate/suppressed | `char_genuine/human`@1 + `Interest`@0.95 + `vn_S_CONV_high`@0.02 + `vn_VULN_low`@0.01 | 0.47 | 4 | 0.14 |  |
 |  |  | intense/free | `char_genuine/human`@1 + `Interest`@1.05 + `vn_VULN_high`@0.1 + `vn_ARSH_high`@0.2 | 0.35 | 7 | 0.64 |  |
 |  |  | intense/suppressed | `char_genuine/human`@1 + `Interest`@0.8 + `vn_VULN_low`@0.06 + `vn_FOCS_high`@0.1 | -0.37 | 3 | 0.20 |  |
-| **Intoxication Altered States of Consciousness** ⚠️thin | 4 | moderate/free | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@1.15 + `vn_VULN_high`@0.22 + `vn_S_CONV_high`@0.2 | -0.46 | 4 | 0.29 | +0.11 |
-|  |  | moderate/suppressed | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@0.96 + `vn_VULN_low`@0.05 + `vn_S_CONV_high`@0.1 + `vn_COGL_high`@0.1 | -0.47 | 4 | 0.27 |  |
-|  |  | intense/free | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@0.95 + `vn_VULN_high`@0.2 + `vn_S_CONV_high`@0.18 | -0.17 | 3 | 0.09 |  |
-|  |  | intense/suppressed | — | | | |  |
+| **Intoxication Altered States of Consciousness** | 10 | moderate/free | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@0.98 + `vn_VULN_high`@0.14 + `vn_S_CONV_high`@0.18 + `vn_COGL_high`@0.06 + `vn_DFLU_high`@0.03 | 0.56 | 6 | 0.54 | **+0.02** (paired) |
+|  |  | moderate/suppressed | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@0.68 + `vn_VULN_low`@0.09 + `vn_S_CONV_high`@0.16 + `vn_COGL_high`@0.05 | 0.53 | 4 | 0.53 |  |
+|  |  | intense/free | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@1.3 + `vn_VULN_high`@0.15 + `vn_S_CONV_high`@0.16 + `vn_RESP_high`@0.16 + `vn_DFLU_high`@0.24 + `vn_CLRT_low`@0.2 | 1.38 | – | 0.21 | **-1.05** (paired) |
+|  |  | intense/suppressed | `char_genuine/human`@1 + `Intoxication_Altered_States_of_Consciousness`@0.9 + `vn_VULN_low`@0.1 + `vn_S_CONV_high`@0.12 + `vn_S_CASU_high`@0.1 + `vn_COGL_high`@0.08 + `vn_RESP_high`@0.06 | 1.11 | – | 0.27 |  |
 
 ## See also
 
