@@ -1,0 +1,70 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>text_carries_the_condition.md</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../../../../../../../../../../../index.html">← Manual hub</a></p>
+<h1>Text-side recipes: make the WORDS carry the condition</h1>
+<p><em>Measured recipe page, added Aug 2026. <b>Additive</b> — nothing on the emotion, VoiceNet, burst or NSFW pages is retracted. This adds what was not previously measured: how much of a condition the <b>text</b> can carry when the adapter alone is brittle, and one case where the obvious adapter fix makes things actively worse.</em></p>
+<p>Ablation: <b>106 arms, 1,696 candidates</b>, one reference voice, everything held fixed except the sentence and the adapter set. Regeneration: <b>89 groups, 2,848 candidates</b>.</p>
+<hr>
+<h2>0. The one-line summary</h2>
+<table><tr><th class="">target</th><th class="">winning recipe</th><th class="">effect</th></tr><tr><td class=""><b>Disfluency (DFLU)</b></td><td class="">ellipses + filled pauses + a false start + a cue naming the behaviour</td><td class="">ladder span <b>0.44 → 2.07</b></td></tr><tr><td class=""><b>Explicitness (EXPL dim)</b></td><td class="">a written vulgarity ladder</td><td class="">ladder span <b>−0.006 → 0.43</b></td></tr><tr><td class=""><b>Explicitness LoRA</b></td><td class="">adult text + inline burst tags, <b>no</b> burst adapter</td><td class="">blend <b>1.60 → 7.82</b></td></tr><tr><td class=""><b>Chunking (CHNK)</b></td><td class=""><b>no change</b> — every recipe scored at or below base</td><td class="">negative result</td></tr><tr><td class=""><b>Edge cases</b></td><td class="">inline tags on <b>laughter only</b>, <b>never</b> a burst adapter</td><td class="">see §4</td></tr></table>
+<hr>
+<h2>1. Disfluency is a text property, not an adapter property</h2>
+<p>The adapter alone barely separates the top two levels: measured disfluency <b>0.269 / 0.443 / 0.711 / 0.714</b> across the four levels — levels 2 and 3 are indistinguishable.</p>
+<p>Writing the hesitation into the line fixes it:</p>
+<table><tr><th class="">arm</th><th class="">ladder</th><th class="">span</th><th class="">extremely low → very high</th></tr><tr><td class="">base (adapter only)</td><td class="">0.417</td><td class="">0.444</td><td class="">0.269 · 0.443 · 0.711 · 0.714</td></tr><tr><td class="">ellipsis only</td><td class="">0.544</td><td class="">1.146</td><td class="">0.299 · 0.266 · 1.143 · 1.445</td></tr><tr><td class="">+ filled pauses &amp; false starts</td><td class="">0.643</td><td class="">2.012</td><td class="">0.301 · 0.288 · 1.182 · 2.313</td></tr><tr><td class=""><b>+ a cue naming the behaviour</b></td><td class=""><b>0.968</b></td><td class=""><b>2.066</b></td><td class="">0.255 · 0.295 · 1.302 · <b>2.321</b></td></tr></table>
+<p><b>Recipe.</b> Scale the insertions by level: 0 breaks / 1 / 3 + one filler / 5 + two fillers + one false start. At the <b>low</b> end do <em>negative</em> work — strip hesitation the source text already contains, or level 0 is merely "the default" rather than a real contrast. Put breaks at commas and clause boundaries first. Add a cue: <em>"very hesitant, stalling and restarting constantly"</em>.</p>
+<p><b>Cost:</b> WER +0.176. Some of that is real — a stalling speaker <em>is</em> harder to transcribe.</p>
+<h3>1b. It transfers to emotions whose delivery is physically broken speech</h3>
+<p>Applied to emotions selected by what the condition does to <b>articulation</b>, not by intensity:</p>
+<table><tr><th class="">treatment</th><th class="">emotions</th><th class="">emotion Δ</th><th class="">genuineness Δ</th><th class="">disfluency Δ</th><th class="">WER Δ</th></tr><tr><td class=""><b>heavy (level 3)</b></td><td class="">Intoxication, Grief, Hesitancy</td><td class=""><b>+0.703</b></td><td class=""><b>+0.637</b></td><td class="">+0.782</td><td class="">+0.067</td></tr><tr><td class="">moderate (level 2)</td><td class="">Fatigue, Confusion, Embarrassment, Shame, Distress, Fear, Sadness, Helplessness, Awkwardness</td><td class="">+0.037</td><td class="">+0.131</td><td class="">+0.304</td><td class="">+0.148</td></tr></table>
+<p><b>The heavy treatment on the most-broken emotions is the strongest single result on this page.</b> The moderate treatment moves disfluency but barely moves emotion — apply it for the disfluency, not expecting an emotion gain.</p>
+<hr>
+<h2>2. Chunking: a negative result, kept as one</h2>
+<p>Every recipe scored at or below base on the ladder, and all cost roughly <b>2.4× the WER</b> (0.088 → 0.21). Base is monotonic with a tiny span (2.19 → 2.67); the recipes buy span but lose monotonicity.</p>
+<p><b>Writing breaks into the line does not drive the chunking metric.</b> Either the metric measures something else, or chunking is genuinely not text-drivable this way. Do not spend prompt budget on it until that is resolved.</p>
+<hr>
+<h2>3. Explicitness: two different targets that had been conflated</h2>
+<p>The <b>EXPL dimension</b> is a <em>register</em> axis — polite → blunt → profane. The <b>explicitness LoRA</b> is <em>adult intimacy</em>. They are not the same thing, and both had been handed ordinary neutral sentences.</p>
+<p><b>The EXPL adapter does nothing on its own.</b> Measured base ladder: <b>0.161 / 0.218 / 0.161 / 0.155</b> — span <b>−0.006</b>. Flat. With a written vulgarity ladder: span <b>0.428</b>, and the target metric rose <b>+0.584</b> on regeneration.</p>
+<p><b>For the LoRA block</b>, adult text with inline burst tags (<code>&amp;lt;moans&amp;gt;</code>, <code>&amp;lt;sharp inhale&amp;gt;</code>, <code>&amp;lt;breathy giggle&amp;gt;</code>) and <b>no burst adapter</b>: blend <b>1.60 → 7.82</b>, genuineness <b>0.32 → 1.56</b>. Adding the burst adapter <em>lowered</em> blend to 5.42 and raised WER to 0.287.</p>
+<blockquote>### ⚠️ Safety, from a real failure The adult rewrite silently returned its seed, and the seed was a corpus sentence — a birthday message. The pipeline produced <em>"Seventy years young, Paul. We want to celebrate you... with some real fun."</em> and the burst pass then added <code>&amp;lt;breathing heavily&amp;gt;</code> and <code>&amp;lt;sighs&amp;gt;</code>. <b>Seed adult register from a neutral adult scene between two unnamed adults — never from whatever the corpus supplied — and treat a rewrite that returns its seed verbatim as a FAILURE, not a result.</b> Nothing had been checking that.</blockquote>
+<hr>
+<h2>4. Edge cases: the obvious fix makes them worse</h2>
+<p>The eight EDGE8 cases were getting <b>no inline burst tags and no burst adapter</b> — <code>caption_edge</code> passes tags only for the six GA hall-of-fame entries. So they had been running at the floor. The natural fix is to merge the fitting burst adapter. <b>Measured, that is harmful:</b></p>
+<table><tr><th class="">arm</th><th class="">emotion</th><th class="">WER</th><th class=""><b>speaker similarity</b></th></tr><tr><td class="">base</td><td class="">2.501</td><td class="">0.329</td><td class="">0.365</td></tr><tr><td class="">inline tags only</td><td class="">2.723</td><td class="">0.511</td><td class="">0.334</td></tr><tr><td class="">tags + burst adapter @0.5</td><td class="">2.671</td><td class="">0.697</td><td class=""><b>0.176</b></td></tr><tr><td class="">+ temperature 1.4</td><td class="">2.666</td><td class="">0.666</td><td class="">0.185</td></tr><tr><td class="">tags + adapter, emotion dropped</td><td class="">2.278</td><td class="">0.643</td><td class="">0.230</td></tr></table>
+<p><b>The burst adapter halves speaker identity for a 0.17 emotion gain.</b> The manual's λ=0.5 recipe was measured for bursts inside <em>ordinary</em> sentences; an edge case is already at the extreme, and stacking a burst adapter on top pushes it into unintelligibility.</p>
+<p><b>Inline tags alone win on only 6 of 12 cases, and the split is systematic:</b></p>
+<table><tr><th class="">gains</th><th class="">loses</th></tr><tr><td class="">amused_laughter <b>+1.024</b>, ga_amuse_laugh +0.522, cold_shiver +0.304</td><td class="">tears <b>−0.546</b>, ga_sad_cry −0.183, sad_crying −0.048</td></tr></table>
+<p>Discrete laughter bursts land cleanly. Sobs smear into speech that is already sobbing.</p>
+<p><b>Recipe: inline tags on laughter/amusement edge cases; leave crying alone; never merge a burst adapter into an edge case.</b></p>
+<hr>
+<h2>5. What to take from this</h2>
+<ul><li>When a dimension's ladder is flat, suspect the <b>text</b> before the adapter dose. DFLU and EXPL were both nearly flat for that reason.</li><li><b>Score a ladder on monotonicity and span, not on the maximum.</b> A recipe that pushes every level high has destroyed the dimension.</li><li>Strip hesitation at the low end. A contrast needs both ends built.</li><li>Compute WER on <b>burst-stripped</b> text, or every burst take is charged for words it never contained.</li><li>A rewrite that returns its input is a failure. Check.</li></ul>
+</body></html>
