@@ -8,6 +8,29 @@ makes things actively worse.*
 Ablation: **106 arms, 1,696 candidates**, one reference voice, everything held fixed except the
 sentence and the adapter set. Regeneration: **89 groups, 2,848 candidates**.
 
+> ### ⚠️ Correction (Aug 2026) — §4's edge-case result is withdrawn
+>
+> The burst-tag arms of this ablation ran while the text pipeline emitted `<sobs>` but the WER
+> reference stripped only round brackets. The tag therefore stayed **inside the WER reference**,
+> and since reward is `× (1 − WER)`, **every burst-tagged take was charged word error for failing
+> to pronounce the tag**. The ranker was selecting against exactly the takes the tags were added
+> to help.
+>
+> **What this invalidates:** the §4 conclusion that inline tags win on only 6 of 12 edge cases,
+> with laughter gaining and crying losing. That split is an artefact of the scoring bug, not a
+> property of the model, and it has been re-run.
+>
+> **What survives:** §1–§3 (disfluency, explicitness, chunking) used no burst tags and are
+> unaffected. The finding that merging a **burst adapter** into an edge case halves speaker
+> identity (0.365 → 0.176) is also unaffected — it was measured on adapter dose, not on tags.
+>
+> See [prompt notation](prompt_notation.html) for the notation rules and the corrected stripper.
+>
+> The disfluency ladder below has also been **deepened** since: 0 / 1 / 4 / 8 breaks across the
+> four levels rather than 0 / 1 / 3 / 5, and at the top level breaks may land **mid-phrase**
+> rather than only at clause seams — breaking only at seams reads as *thoughtful*, whereas heavy
+> intoxication and grief break inside the phrase.
+
 ---
 
 ## 0. The one-line summary
