@@ -1,0 +1,58 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Prompt notation — brackets, capitals, line length</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>Prompt notation — brackets, capitals, and how long a line has to be</h1>
+<p><b>New (Aug 2026).</b> Four notation rules that are not style preferences: each one was violated in a shipped run and each violation was measurable. If you write prompts for <code>moss-tts-local-transformer-4.55b-voice-acting-v2</code>, this page is the shortest thing in the manual that will stop you losing a run.</p>
+<blockquote><b>The rules, in one block.</b>  ``<code> GENERAL: &amp;lt;the standing description of the voice and the situation&amp;gt; SCRIPT: (delivery cue) &quot;the spoken line, (burst) with tags inline, [pause] and pauses in squares&quot; </code>`<code>  1. <b>Round brackets</b> carry delivery cues <em>and</em> vocal bursts: </code>(quietly, with lethal control)<code>, </code>(screams)<code>. This is the only inline notation the model was trained on. 2. <b>Square brackets</b> carry pauses: </code>[pause]<code>, </code>[long pause]<code>. Never put one directly after a burst — that is the truncation shape (see <a href="bursts_merging_evaluation.html">bursts &amp;amp; merging</a>). 3. <b>Never capitalise a tag.</b> </code>(SCREAM)` is read out as "ess see arr ee ay em". Lowercase everything inside brackets. 4. <b>Give the line enough words.</b> At ~2.8 words/s a line under 8 words cannot fill three seconds however slowly it is read. Ten words is the working minimum.</blockquote>
+<hr>
+<h2>1. Round brackets, not angle brackets</h2>
+<p>Every worked example in this manual — <a href="acting/prompts.html">all 351 verbatim captions</a> — uses round brackets:</p>
+<pre><code>SCRIPT:
+(a broken breath turning into a controlled eruption) &quot;Don&#x27;t you dare touch me.&quot; (screams) &quot;You
+don&#x27;t get to cry now.&quot;</code></pre>
+<p>A pipeline of ours emitted <code>&amp;lt;sobs&amp;gt;</code> instead for one full round of the voice-profile corpus. That was wrong twice over, and the second way is the expensive one:</p>
+<ul><li><b>The model does not act on it.</b> The angle form is not the trained notation, so the tag is at best ignored and at worst spoken.</li><li><b>It corrupted the SCORING.</b> The WER reference strips <code>\([^)]*\)</code> — round brackets — before comparing against ASR. An angle-bracket tag therefore stayed <em>in</em> the reference string, so every burst-tagged take was charged word-error for failing to pronounce "sobs". Reward is multiplied by <code>(1 − WER)</code>, so the ranker was actively selecting <b>against</b> exactly the takes the tags had been added to improve. An ablation of "inline tags vs no tags" run in that state showed tags winning on only 6 of 12 edge cases; that result is not trustworthy and was re-run.</li></ul>
+<p><b>If you change the tag notation, change the WER stripper in the same commit.</b> The regex must cover every notation the text can contain:</p>
+<pre><code>BURST_TAG_RE = re.compile(r&quot;\([^)]*\)|\[[^\]]*\]|&lt;[^&gt;]{1,40}&gt;&quot;)</code></pre>
+<h2>2. Square brackets for pauses — a different mechanism from "..."</h2>
+<p><code>...</code> and <code>[pause]</code> are not two spellings of one thing. The ellipsis is a written cue the model may or may not honour; the pause tag is an explicit instruction. They can be swapped at a <b>fixed break count</b>, which is the only way to ask "which notation works" without also asking "how many breaks work" — the two questions get confounded otherwise, because a plan that emits three pause tags and eight ellipses is comparing three breaks against eight.</p>
+<p>The disfluency ladder that shipped after this correction escalates <code>0 / 1 / 4 / 8</code> breaks across the four levels and, at the top level only, is allowed to break <b>mid-phrase</b> rather than at clause seams. Breaking only at seams reads as <em>thoughtful</em>; heavy intoxication and grief break inside the phrase. See <a href="text_carries_the_condition.html">text carries the condition</a> for the measured ladder.</p>
+<h2>3. Never capitalise inside a tag</h2>
+<p>The model spells capitalised tokens out letter by letter. <code>(SCREAM)</code>, <code>(Sobs)</code> and <code>AAAH</code> are all failure modes; <code>(screams)</code>, <code>(sobs)</code> and a written-out <code>aaah</code> are not. This applies to the <code>GENERAL:</code> block too — write <code>a shivering voice</code>, not <code>A SHIVERING VOICE</code>.</p>
+<h2>4. Long enough to be a reference clip</h2>
+<p>A clip that represents a condition has to be long enough to hear the condition in. Two independent things enforce that:</p>
+<ul><li><b>Text side.</b> Every line ≥ 10 words. The explicitness dimension was previously driven by a single six-word line — <em>"That wasn't love. Not even close."</em> — reused for <b>all four levels</b>, so the ladder had no room to move and the winning takes came out at 2.4–2.6 s.</li><li><b>Ranking side.</b> A duration multiplier <code>clip(dur / 3.0, 0, 1) ** 2</code> on the score. It <em>crushes</em> short takes rather than banning them, so a group where every candidate is short still resolves to its best member instead of ranking arbitrarily.</li></ul>
+<p>Without the duration term nothing in the score preferred a longer take, and short takes had a perverse advantage: fewer words means fewer chances to misread, so WER trends to zero and the z-scored perceptual terms are computed over a nearly silent clip.</p>
+<h3>The publishing trap that hid all of this</h3>
+<p>Worth stating separately, because it wasted a listening session. The page builder exported the winning take by matching <code>audio_key</code>, which is only <code>&amp;lt;gid&amp;gt;.cNNN.mp3</code> — <b>not unique across runs</b>. With several run directories passed in, whichever tar was scanned first won. The result: the scores on the page came from the current run and the audio came from an older one, and <em>all 89 regenerated groups played their pre-regeneration take underneath a "NEW, improved" badge</em>. The metadata said 5.76 s; the clip served was 0.24 s.</p>
+<p>Match on <code>(source directory, audio_key)</code>, clear the output directory before writing, and assert that each exported file's size is consistent with the duration its metadata claims. A page that serves the wrong audio is worse than a page with no audio, because it invalidates the listening that follows it.</p>
+<hr>
+<p><em>Part of the <a href="../index.html">MOSS voice-acting manual</a>. See also <a href="text_carries_the_condition.html">text carries the condition</a> for what to write, and <a href="bursts_merging_evaluation.html">bursts, merge doses &amp; evaluation</a> for how hard to merge a burst adapter.</em></p>
+</body></html>
