@@ -74,6 +74,42 @@ The model spells capitalised tokens out letter by letter. `(SCREAM)`, `(Sobs)` a
 failure modes; `(screams)`, `(sobs)` and a written-out `aaah` are not. This applies to the
 `GENERAL:` block too — write `a shivering voice`, not `A SHIVERING VOICE`.
 
+### Measured, because this rule was written and then not applied
+
+**Aug 2026.** This page shipped the rule in round 3 and *nothing enforced it on the 808 texts that
+already existed*. Thirty of them carried an all-caps run in the spoken line — `WSA`, `GUI`, `FDA`,
+`RTR`, and one that mattered:
+
+```
+k325_age3_bg1|X|pain_scream   "My leg... god, it hurts! I can't... move it! AGH!"
+```
+
+The single clip in the corpus whose entire purpose was to be a scream was the single clip where the
+model stopped acting and read an initialism. Four candidates, four transcripts:
+
+| what the ASR heard |
+|---|
+| …I can't move it. **Age.** |
+| …move it. **Atch! Itch!** |
+| …I can't move it. **Akish.** |
+| …I can't move it. **Age each.** |
+
+It is pronouncing the letter names *ay-gee-aitch*, and ASR then re-spells that as ordinary words —
+which is why a naive detector looking for separated single characters (`a g h`) finds nothing. If
+you are checking a corpus for this, match letter-*name* phonetics and read the transcripts.
+
+**Two implementation notes that cost time here:**
+
+- Enforce it at the point where candidates are built, not where texts are authored. Authored text
+  is only one of the sources; a paraphraser will happily reintroduce an acronym.
+- Do **not** run the fix over the whole caption. `GENERAL:` and `SCRIPT:` are format keywords the
+  model was trained on, and a first version of our guard lowercased both in all 808 groups. Only
+  the quoted line is spoken, so only the quoted line gets normalised.
+
+An acronym is a genuine ambiguity rather than a bug — "the WSA program" *should* arguably be
+spelled out. But a paraphrase of a news sentence has no business putting one in an actor's mouth;
+rewrite it to what a person would say.
+
 ## 4. Long enough to be a reference clip
 
 A clip that represents a condition has to be long enough to hear the condition in. Two independent

@@ -91,6 +91,45 @@ A measured example from this stack: a 6 s casting part scored **3.345 → 3.358*
 conversion — i.e. no damage, so the conversion was worth keeping. Do not assume that generalises;
 emotional and non-verbal material is exactly where VC is most likely to cost you.
 
+### At corpus scale: 832 conditions converted, measured both ways
+
+**Aug 2026.** The whole voice profile was converted — every selected take, all 832 conditions,
+both languages. The trade is now quantified rather than asserted.
+
+| | before | after |
+|---|---|---|
+| ECAPA similarity to the reference | 0.507 | **0.726** (+0.219, up in **100 %** of groups) |
+| emotional fidelity, 1 − cos on the 40-dim emotion vector | — | **0.057** lost (noise floor 0.003) |
+| DNSMOS | 3.437 | 3.401 (−0.036; level-matched control −0.034) |
+| RMS | — | **1.49×** louder |
+
+**Run it three times and pick.** Chatterbox exposes no seed argument; the noise enters at
+`CausalConditionalCFM.forward`'s `z = torch.randn_like(mu)` (with `rand_noise` unset), so the hook
+is `torch.manual_seed` immediately before `ChatterboxVC.generate`. Three draws were bit-distinct in
+**832 of 832** groups. Selecting the draw whose 40-dim emotion vector stays closest to the original
+beats one draw by **+0.0163** mean cosine (paired t = 26.2, p = 9e-111, Cohen's dz = 0.91) and
+changes the selection in **69.8 %** of groups. That recovers roughly **28 %** of the emotion
+conversion costs, for 3× the compute. Selected-seed counts were 251/286/295 — no seed is
+privileged, so verify your own seeds actually differ before believing a best-of-N number.
+
+**Per block, the trade does not go where intuition says.** The guess is that conversion buys most
+identity where it costs most emotion. Per clip that correlation exists but is negligible (Spearman
++0.087, ~3 % of variance). Per block it *inverts*: VoiceNet conditions lose the most emotion
+(0.061) **and** gain the least identity (+0.195), while emotion conditions lose less (0.056) and
+gain the most (+0.248). Measure per block; do not extrapolate from the aggregate.
+
+### Two traps when you publish an A/B
+
+- **Level-match, or the louder clip wins.** Conversion returns ~1.49× the RMS. Louder reliably
+  wins a blind comparison irrespective of quality, so an unmatched A/B "proves" conversion is
+  better by turning the volume up. Attenuate the louder side to the quieter side's RMS at
+  playback — the HTML `volume` property does it without a second lossy encode — and **print the
+  attenuation**. A correction the listener cannot see is not a correction.
+- **DNSMOS silently returning NaN.** S3Gen output peaks above 1.0 in ~86 % of clips and
+  `speechmos` *raises* outside [−1, 1]. Our wrapper caught that in a bare `except`, so the
+  "conversion is nearly free on quality" claim rested on a number that had never once been
+  computed. Scale (do not clip) to 0.999 before scoring, and assert the result is finite.
+
 ## 4. Assembling
 
 - **Crossfade the seam.** A hard concatenation leaves a click that the quality head reliably
