@@ -106,6 +106,41 @@ that follows it.
 
 ---
 
+## 5. Measured — 124 arms, 3,968 candidates
+
+**Round brackets beat angle brackets**, on the six GA hall-of-fame genomes where the angle form was
+deliberate and evolved:
+
+| notation | emotion | blend | genuineness |
+|---|--:|--:|--:|
+| angle `<screams>` (as evolved) | 2.535 | 6.77 | 1.600 |
+| **round `(screams)`** | **2.603** | **7.06** | **1.731** |
+
+**`...` and `[pause]` do different jobs.** Held at a fixed break count per level (0 / 1 / 4 / 8):
+
+| notation | ladder | span | top level | WER |
+|---|--:|--:|--:|--:|
+| **both together** | **0.635** | **1.850** | **2.154** | 0.198 |
+| `...` only | 0.608 | 1.537 | 1.876 | 0.238 |
+| `[pause]` only | 0.526 | 1.067 | 1.396 | **0.122** |
+| adapter alone, no written breaks | 0.337 | 0.351 | 0.669 | 0.005 |
+
+Read that as a choice, not a ranking: **ellipses drive the disfluency head harder, pause tags are
+far gentler on intelligibility** (WER 0.122 vs 0.238, nearly half). Use ellipses when the condition
+must be audible, pause tags when the words must survive, both when you want the widest ladder.
+
+**Carrier length is a separate axis from notation.** Lengthening the 4–9 word GA carriers took
+takes under three seconds from 12.0 % to 2.1 % and raised emotion, at the cost of blend halving
+(7.06 → 3.89) — a burst is simply a smaller fraction of a longer line.
+
+**Dose is not linear.** Writing *heavy* hesitation into a line wins in both languages
+(disfluency +0.72; the intoxication/grief/hesitancy emotions +0.58 EN / +0.68 DE). Writing
+*moderate* hesitation is a **negative result in English** (−0.224 over 32 emotion groups, across
+two independent rounds) while working in German (+0.113). A little written hesitation appears to
+cost more than it buys; a lot changes the delivery enough to register.
+
+---
+
 *Part of the [MOSS voice-acting manual](../index.html). See also
 [text carries the condition](text_carries_the_condition.html) for what to write, and
 [bursts, merge doses & evaluation](bursts_merging_evaluation.html) for how hard to merge a burst
