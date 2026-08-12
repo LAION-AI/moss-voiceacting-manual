@@ -1,0 +1,338 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Scaling the voice-profile corpus to 500 voices</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>Scaling the voice-profile corpus to 500 voices</h1>
+<p><em>Reproducible build note, Aug 2026. Self-contained: no other page in this manual is needed to follow it. Everything below is measured on one complete reference build (voice <code>emolia_c1675</code>, 842 groups, 40,247 candidates, Slurm jobs 1305809 and 1305909) unless it is explicitly labelled an estimate.</em></p>
+<h2>0. What this document is</h2>
+<p>We generate, for each of a set of <b>reference voices</b>, a corpus of conditioned speech: the same speaker rendered under 832 named conditions (emotions, perceptual voice dimensions, non-verbal edge cases, character archetypes, sports commentary, adult register), in English and German, with many candidate takes per condition, every candidate stored and scored. One voice exists today. This page is the plan and the cost model for <b>500</b>, written so an outside reader can reproduce it, and so that the one defect that would silently ruin the run is caught before compute is spent.</p>
+<p><b>Model</b>: <code>laion/moss-tts-local-transformer-4.55b-voice-acting-v2</code>, a 4.55 B expressive voice-acting TTS. Conditions are expressed as a natural-language caption plus a set of LoRA adapters merged at measured strengths. <b>Hardware</b>: JUPITER (JSC), GH200 nodes, 4 GPUs per node.</p>
+<table><tr><th class=""></th><th class="">value</th></tr><tr><td class="">Conditions per voice</td><td class=""><b>832</b></td></tr><tr><td class="">Candidates per condition</td><td class=""><b>48</b> (subset A 32 + subset B 16)</td></tr><tr><td class="">Candidates per voice</td><td class=""><b>39,936</b> nominal, <b>39,927</b> measured (99.98 % yield)</td></tr><tr><td class="">Voices</td><td class=""><b>500</b></td></tr><tr><td class=""><b>Total candidates</b></td><td class=""><b>19,963,500</b></td></tr><tr><td class="">Total generated audio</td><td class=""><b>40,408 h</b></td></tr><tr><td class="">Distinct written sentence pairs (EN/DE) per voice</td><td class=""><b>15,312</b> for the matrix, 15,472 including the burst addendum</td></tr><tr><td class="">Stage 1 (text)</td><td class=""><b>146 GPU-h</b> = 10,478 core-h</td></tr><tr><td class="">Stage 2 (audio)</td><td class=""><b>15,731 GPU-h</b> = 1,132,642 core-h</td></tr><tr><td class=""><b>Total</b></td><td class=""><b>15,877 GPU-h = 1,143,120 core-h</b></td></tr><tr><td class="">Fraction of REFORMO remainder (68,709,721 core-h)</td><td class=""><b>1.66 %</b></td></tr><tr><td class="">Fraction of LAIONIZE remainder (37,569,231 core-h)</td><td class=""><b>3.04 %</b></td></tr><tr><td class="">Storage</td><td class=""><b>3.02 TB</b></td></tr><tr><td class="">Wall clock on 64 nodes</td><td class=""><b>2.6 days</b></td></tr></table>
+<hr>
+<h2>1. What the corpus is</h2>
+<h3>1.1 The 832 conditions</h3>
+<p>Built by <code>vpspec.build_matrix()</code>. Every block is crossed with <code>{EN, DE}</code>.</p>
+<table><tr><th class="">block</th><th class="">conditions</th><th class="">groups</th></tr><tr><td class="">Emotions</td><td class="">40 emotions × {intense, moderate} × {free, contained} × 2 languages</td><td class=""><b>320</b></td></tr><tr><td class="">VoiceNet dimensions</td><td class="">57 perceptual dimensions × 4 levels × 2 languages</td><td class=""><b>456</b></td></tr><tr><td class="">Edge cases</td><td class="">14 non-verbal deliveries (screams, groans, sobbing, shivering, laughter, whimpering) × 2</td><td class=""><b>28</b></td></tr><tr><td class="">Character clusters</td><td class="">12 character LoRAs × 2</td><td class=""><b>24</b></td></tr><tr><td class="">Sports commentator</td><td class="">× 2</td><td class=""><b>2</b></td></tr><tr><td class="">Explicitness</td><td class="">× 2, behind an age safety gate</td><td class=""><b>2</b></td></tr><tr><td class=""><b>total per voice</b></td><td class=""></td><td class=""><b>832</b></td></tr></table>
+<p>The four emotion conditions are labelled <code>A</code> intense/free, <code>B</code> moderate/free, <code>C</code> intense/contained, <code>D</code> moderate/contained. The four VoiceNet levels are <code>extremely_low</code>, <code>moderately_low</code>, <code>moderately_high</code>, <code>very_high</code>.</p>
+<p>A separate <b>10-group addendum</b> (<code>vpspec.build_burst_isolated</code>) covers the 5 vocal-burst classes that measurably never fire mid-utterance (<code>hiss</code>, <code>kissing_noises</code>, <code>lip_smack</code>, <code>person_whistling_playfully</code>, <code>slurping_noises</code>) as isolated events, × 2 languages. It is deliberately <b>not</b> part of the 832 so the matrix count cannot drift.</p>
+<h3>1.2 The two subsets, which are the whole point</h3>
+<p>Each group produces <b>48 candidates in two subsets that answer different questions</b>.</p>
+<table><tr><th class=""></th><th class="">subset A</th><th class="">subset B</th></tr><tr><td class="">candidates per group</td><td class=""><b>32</b></td><td class=""><b>16</b></td></tr><tr><td class="">sentence source</td><td class="">that <b>condition's own</b> pool (<code>cond_key</code>)</td><td class="">that condition's <b>parent</b> pool (<code>parent_key</code>)</td></tr><tr><td class="">sentences</td><td class=""><b>32 different</b> sentences, one per candidate</td><td class=""><b>16</b> sentences, <b>shared across all sub-conditions of the parent</b></td></tr><tr><td class="">purpose</td><td class="">breadth: 32 usable pre-training samples per condition</td><td class="">controllability: minimal pairs, same words under a different condition</td></tr><tr><td class="">pools per voice</td><td class="">416 language-independent conditions (+5 addendum)</td><td class="">125 parents</td></tr><tr><td class="">written pairs</td><td class="">416 × 32 = <b>13,312</b></td><td class="">125 × 16 = <b>2,000</b></td></tr></table>
+<p><code>cond_key</code> drops the language component of the group id, so <b>EN and DE draw the same pool index and are therefore parallel translations of one another</b>. <code>parent_key</code> additionally drops the condition or level, so <code>E|Bitterness|A</code>, <code>|B</code>, <code>|C</code>, <code>|D</code> all share one B pool: the same 16 sentences are spoken intensely and freely, then moderately and contained, and the difference in the audio is the condition and nothing else.</p>
+<p>Both are ranked <b>within subset</b> (<code>vpgen.py</code>, <code>for sub in (&quot;A&quot;, &quot;B&quot;)</code>), because A's 32 distinct sentences and B's 16 shared ones are not comparable pools and a single ranking would let one crowd out the other.</p>
+<p>The plan's own arithmetic for why A exists: today 32 generations yield <b>one</b> selected take. Under subset A those same 32 generations yield <b>32</b> usable samples, which is roughly 17× less compute per usable pre-training sample, at the cost of each individual clip sitting at the distribution mean rather than its maximum.</p>
+<hr>
+<h2>2. The defect that blocks the run, and how it is verified</h2>
+<blockquote><b>Verified 2026-08-12.</b> The profile published today was generated <b>without any A/B split at all</b>. It is 32 takes of a single sentence per group. The correct artefacts exist for a different voice, and the 500-voice run must use that path.</blockquote>
+<h3>2.1 What went wrong</h3>
+<p><code>vpgen.py::_build_plan</code> has a deliberate early-return for groups that carry their own single line, used by ablation arms and hand-written groups:</p>
+<pre><code>if &quot;cond_key&quot; not in g:
+    ...
+    line = g[&quot;text&quot;]
+    for k in range(args.cands):
+        plan.append(dict(subset=&quot;A&quot;, sub_idx=k, text=line, ...))
+    return plan</code></pre>
+<p>The published profile <code>k325_age3_bg1</code> was generated from <code>$NB/vprof/work/groups_k325_age3_bg1.rewritten.json</code>. Measured:</p>
+<table><tr><th class="">file</th><th class="">groups</th><th class="">with <code>cond_key</code></th><th class="">with <code>caption_tmpl</code></th><th class="">distinct texts</th></tr><tr><td class=""><code>groups_k325_age3_bg1.rewritten.json</code></td><td class="">808</td><td class=""><b>0</b></td><td class=""><b>0</b></td><td class="">224</td></tr><tr><td class=""><code>groups_k325_age3_bg1.json</code></td><td class="">808</td><td class=""><b>0</b></td><td class=""><b>0</b></td><td class="">221</td></tr><tr><td class=""><code>groups_emolia_c1675.json</code></td><td class=""><b>832</b></td><td class=""><b>832</b></td><td class=""><b>832</b></td><td class="">(pool-driven)</td></tr></table>
+<p>Because no group carries <code>cond_key</code>, <b>every group took the early return</b>, <code>--texts</code> was never consulted, and each group became 32 identical-text takes. The visible consequence, measured per block on the published file:</p>
+<table><tr><th class="">block</th><th class="">groups</th><th class="">distinct texts</th><th class="">texts per group</th></tr><tr><td class="">VoiceNet</td><td class="">456</td><td class=""><b>114</b></td><td class="">one per dimension × language, shared across all four levels</td></tr><tr><td class="">Emotions</td><td class="">320</td><td class=""><b>80</b></td><td class="">one per emotion × language, shared across A/B/C/D</td></tr><tr><td class="">Edge</td><td class="">28</td><td class="">26</td><td class=""></td></tr></table>
+<p>114 = 57 dimensions × 2 languages. So the demo grid shows <b>the same sentence down every level of every VoiceNet dimension</b>, and the ladder that page is supposed to demonstrate is being asked to show itself with the words held constant by accident rather than by design. That is subset B's job, on 16 sentences, alongside subset A's 32 different ones. Here it is the only thing present.</p>
+<p>The failure is silent in one direction and loud in the other, which is why it survived: a group list <b>without</b> <code>cond_key</code> run without <code>--texts</code> produces a plausible-looking corpus, whereas a group list <b>with</b> <code>cond_key</code> run without <code>--texts</code> raises <code>RuntimeError: no texts for &amp;lt;gid&amp;gt;</code> on the first group.</p>
+<h3>2.2 The artefacts the 500-voice run will use</h3>
+<p>Both verified by direct inspection:</p>
+<table><tr><th class="">artefact</th><th class="">measured</th></tr><tr><td class=""><code>$NB/vprof/work/groups_emolia_c1675.json</code></td><td class="">832 groups; <b>832/832</b> carry <code>cond_key</code>, <code>parent_key</code> and <code>caption_tmpl</code>; 416 distinct <code>cond_key</code>, 125 distinct <code>parent_key</code>; 169 distinct adapter keys</td></tr><tr><td class=""><code>$NB/vprof/work/texts_emolia_c1675.json</code></td><td class=""><code>A</code>: <b>421 pools × exactly 32</b> entries = 13,472; <code>B</code>: <b>125 pools × exactly 16</b> = 2,000; 15,472 entries total</td></tr></table>
+<p>(421 = the 416 matrix conditions plus the 5 isolated-burst conditions of the addendum.)</p>
+<p>Every pool entry carries <code>en</code>, <code>de</code>, <code>en_tagged</code>, <code>de_tagged</code>, <code>n_words_en</code>, <code>n_words_de</code>, <code>burst</code>, <code>domain</code>, <code>hard</code>, <code>safety_blocked</code>, plus <code>sid</code>, <code>subset</code>, <code>key</code>, <code>idx</code>, <code>block</code>, <code>target_words</code>, <code>seed_en</code>.</p>
+<p>This path has been <b>run end to end</b>: <code>$NB/vprof/full/emolia_c1675/PFULL</code> is a complete build, 842 groups, 40,247 candidates, and its parquet confirms the split held in production.</p>
+<table><tr><th class="">check on the completed run</th><th class="">result</th></tr><tr><td class="">groups with subset A = 32</td><td class="">838 of 842</td></tr><tr><td class="">groups with subset A = 31</td><td class="">4 (all DE; see §3.4)</td></tr><tr><td class="">groups with subset B = 16</td><td class="">827 of 842</td></tr><tr><td class="">groups with subset B = 15</td><td class="">5 (all DE)</td></tr><tr><td class="">groups with subset B = 0</td><td class="">10, the isolated-burst addendum (no B pool exists for it, by construction)</td></tr><tr><td class="">distinct texts, VoiceNet block</td><td class=""><b>16,405</b> across 456 groups (was 114)</td></tr><tr><td class="">distinct texts, emotion block</td><td class=""><b>11,515</b> across 320 groups (was 80)</td></tr><tr><td class="">errors</td><td class=""><b>0</b></td></tr></table>
+<p><b>The 500-voice run uses the <code>vpprep2.py</code> → <code>vptext.py</code> → <code>vptextmerge.py</code> → <code>vpgen.py --texts</code> path.</b> The pre-flight checklist in §8 asserts it, and every assertion there has been executed against these files.</p>
+<hr>
+<h2>3. Stage 1: text generation</h2>
+<p><b>Text generation must complete before any audio is generated.</b> The pools are an input to <code>vpgen.py</code>, not a by-product of it. Owner: <code>vptext.py</code> (per-GPU shards) and <code>vptextmerge.py</code> (merge and verify). Model: <code>google/gemma-4-E4B-it</code>, batch 128.</p>
+<h3>3.1 What each slot is asked for</h3>
+<p>Every one of the 15,472 slots gets a length target, a domain, and a brief. 90 % are <b>paraphrases seeded by a different FineTranslations sentence</b>, drawn domain-round-robin so that one condition's 32 sentences span the taxonomy instead of clustering; the prompt asks for a rewrite whose <em>content</em> gives a real reason that the condition holds ("the speaker genuinely feels bitterness", "it would naturally be spoken with a very high degree of TEMP"). The seeding exists because a freely-prompted model collapses each emotion onto one topic and destroys domain balance. Measured: 14 seed domains at 994–995 slots each.</p>
+<h3>3.2 The 10 % hard-for-TTS split</h3>
+<p>10 % of slots are generated from ten domains that are hard to <em>say</em>, at 1 % each. Measured on the built pools: <b>1,547 of 15,472 = 10.00 %</b>, split 154–155 per domain.</p>
+<table><tr><th class="">hard domain</th><th class="">measured slots</th></tr><tr><td class=""><code>mathematics</code></td><td class="">155</td></tr><tr><td class=""><code>numbers_units</code></td><td class="">155</td></tr><tr><td class=""><code>dates_times</code></td><td class="">155</td></tr><tr><td class=""><code>abbreviations</code></td><td class="">155</td></tr><tr><td class=""><code>homographs</code></td><td class="">155</td></tr><tr><td class=""><code>proper_nouns</code></td><td class="">155</td></tr><tr><td class=""><code>code_switching</code></td><td class="">155</td></tr><tr><td class=""><code>urls_code</code></td><td class="">154</td></tr><tr><td class=""><code>slang_profanity</code></td><td class="">154</td></tr><tr><td class=""><code>jargon</code></td><td class="">154</td></tr></table>
+<p>These are written in <b>spoken form</b>, which is the entire point: the model must learn to <em>say</em> "the square root of two", so the text must contain those words and not the glyph. The prompt forbids symbols and digits explicitly, and <code>SYMBOL_RE</code> post-filters, because a model told not to emit symbols still does. Measured: <b>11 of 1,547 hard lines</b> still contained a symbol on the first pass, all 11 were retried with a blunter instruction, and <b>0 hard lines remained symbol-bearing</b>. Three non-hard lines still contain a digit or symbol out of 15,472; they have not been repaired.</p>
+<h3>3.3 Length control and bucketing</h3>
+<p>Each slot is assigned one of three word-count buckets, 13 / 21 / 31 words, so that a batch of 64 has a narrow length spread. This is not cosmetic: a sub-batch runs to the frame budget of its longest member, so an unsorted batch of different sentences costs <b>1.86×</b> the same-text batch while a word-count-sorted one costs <b>1.35×</b>. Measured on the built pools: EN mean 18.7 words, median 18; DE mean 18.6, median 18.</p>
+<h3>3.4 EN/DE parallelism</h3>
+<p>German is <b>translated from the English rewrite</b>, never rewritten independently, so the two are the same sentence. Verified on the built pools:</p>
+<table><tr><th class="">check</th><th class="">measured</th></tr><tr><td class="">entries with both EN and DE non-empty</td><td class="">15,466 / 15,472</td></tr><tr><td class="">DE byte-identical to its seed, i.e. translation failed and the fallback fired</td><td class=""><b>0</b></td></tr><tr><td class="">true translation pairs</td><td class=""><b>15,466 = 99.961 %</b></td></tr><tr><td class="">entries with an empty DE line</td><td class=""><b>6</b></td></tr></table>
+<p>All six empty DE lines are <code>urls_code</code> hard-domain slots where the translator returned nothing for a spelled-out URL. <code>vpgen</code> skips a candidate whose line is blank, which is exactly the 4 groups at A=31 and 5 groups at B=15 in §2.2. This is a known, bounded, 0.04 % loss.</p>
+<h3>3.5 Vocal bursts</h3>
+<p>Inline burst tags are placed <b>after</b> translation, so the translator cannot mangle them, and only at a strictly interior position (never opening or closing a line). Per-class quotas over the 59 inline-capable classes are fixed <b>first</b>; emotion fit then decides only <em>where</em> each class's quota is spent. Doing it the other way round concentrates the common classes and starves the rest. One class per text key, because a burst-carrying take swaps the emotion adapter for the burst adapter and sprinkling 12 classes through one group's 48 candidates would mean 12 adapter loads per group.</p>
+<table><tr><th class="">check</th><th class="">measured</th></tr><tr><td class="">entries carrying a burst</td><td class=""><b>2,635 / 15,472 = 17.0 %</b></td></tr><tr><td class="">distinct classes used</td><td class=""><b>59 / 59</b></td></tr><tr><td class="">per-class count</td><td class="">min 25, max 62</td></tr><tr><td class="">never-fire classes leaked into the inline rotation</td><td class=""><b>none</b></td></tr></table>
+<p><b>Correction to the plan.</b> <code>corpusplan.py</code> states a density of "every second sentence carries 1–2 bursts". What is implemented and what shipped is <code>BURST_TEXT_FRACTION = 0.25</code> per key, and the measured realised density is <b>17.0 %</b>, not 50 %. The shortfall between 25 % and 17 % is bursts dropped because no interior position existed in <em>both</em> languages. Either the plan text or the constant should be changed before the 500-voice run; they currently disagree and the constant wins.</p>
+<h3>3.6 The safety rule</h3>
+<p>Two gates, both measured:</p>
+<ul><li><b>Before generation.</b> A seed sentence that <code>mentions_minor()</code> is <b>re-paired away</b> from any sexual or romantic slot (<code>P|</code> explicitness, and the <code>Infatuation</code>, <code>Sexual_Lust</code>, <code>Pleasure_Ecstasy</code>, <code>Affection</code>, <code>Teasing</code> emotion keys) and replaced with a clean pool sentence. Measured: <b>18 seeds re-paired</b> across the four shards (7 / 4 / 3 / 4).</li><li><b>After generation.</b> <code>unsafe_output()</code> rejects any rewrite combining a minor reference with sexual content; the slot falls back to its seed and is flagged <code>safety_blocked</code>. Measured: <b>3 rejections</b> across 15,472 slots.</li></ul>
+<p>Separately, the <b>explicitness block is gated on the reference voice, not on the text</b>: three independent checks must all pass (Empathic-Insight Age head on the reference audio ≥ 2.0, VoiceNet <code>AGEV</code> ≥ 2.40, and the voice card must not match <code>UNDERAGE_WORDS</code>). The gate result is written to <code>safety_gate.json</code> per shard and the 2 explicitness groups are skipped when it fails. The AGEV cutoff is 2.40 rather than the anchor-implied 3.0 because the regressor is measurably biased low against the human-written age cards: measured over all 6,064 reference voices, AGEV separates card-labelled minors from adults at AUC 0.843, and a 3.0 cutoff would exclude 49.3 % of card-labelled adults while still passing 7.2 % of card-labelled minors.</p>
+<h3>3.7 Stage 1 cost</h3>
+<p>Measured on Slurm job 1305809, one node, 4 GPUs, 4 shards of 3,868 slots each:</p>
+<table><tr><th class="">quantity</th><th class="">measured</th></tr><tr><td class="">generations per voice</td><td class="">15,472 EN + 15,472 DE + 11 retries = <b>30,955</b></td></tr><tr><td class="">pure generation time, summed over the 4 GPUs</td><td class=""><b>926 GPU-s = 0.2573 GPU-h</b></td></tr><tr><td class="">throughput</td><td class=""><b>120,315 generations / GPU-h</b> (≈ 33 lines/s/GPU)</td></tr><tr><td class="">job as actually billed (1 node × 11 min 31 s)</td><td class="">0.192 node-h = <b>0.768 GPU-h</b> = 55.3 core-h</td></tr></table>
+<p>The gap between 0.257 and 0.768 GPU-h is model loading plus the deliberate 150 s stagger (§7.3), which is 63 % of a one-voice job and amortises to nothing when work is packed.</p>
+<p><b>500 unique text sets</b>: 15,477,500 generations, <b>128.6 GPU-h</b> of pure generation. Packed as 32 single-node array tasks, each node runs 1.14 h wall, so <b>145.5 GPU-h billed = 10,478 core-h</b>.</p>
+<p>A single shared text set for all 500 voices would cost 0.77 GPU-h instead of 146. The text stage is <b>0.92 % of the total GPU-hours either way</b>, so there is no cost argument for sharing, and 500 distinct sets is the recommendation. What has <em>not</em> been decided, and cannot be read off any artefact, is whether the corpus wants 500 distinct sets or a smaller number sampled across voices; this page prices the 500-set option and flags the choice as open.</p>
+<hr>
+<h2>4. Stage 2: audio generation</h2>
+<h3>4.1 The worker model</h3>
+<p><code>vpgen.py</code>: <b>one process owns one GPU and one shard of one voice's group list</b>. Groups are sorted by <code>(block, emotion|dim|edge, condition|level, lang)</code> and sliced <b>contiguously</b>, not by stride, so consecutive groups share adapters. A stride would hand each worker groups <code>nshards</code> apart in the sorted order and thrash the LoRA loader on every single group, which is exactly what the sorting exists to prevent. At most <code>MAX_RESIDENT_ADAPTERS = 24</code> adapters stay loaded, LRU-evicted.</p>
+<p>Within a group, candidates are bucketed by <b>adapter stack</b>, not by index: the group's own stack runs as one sub-batch and the burst-carrying candidates (which drop the emotion adapter and add <code>burst_&amp;lt;class&amp;gt;@0.5</code>) run as another. Inside a sub-batch, items are sorted by word count before batching, which is where the 1.35× rather than 1.86× premium comes from.</p>
+<p>Batch size is <b>64</b> (<code>--batch 64</code>). Note that the <em>effective</em> batch is bounded by the sub-batch size, so a 48-candidate group with one burst stack runs roughly 40 + 8, not 64. The batch-64 microbenchmark below therefore over-states the achievable rate, and §5 uses the measured end-to-end rate instead.</p>
+<h3>4.2 What is scored, per candidate</h3>
+<p>Every candidate is sensed and stored, not just the winner: 57 VoiceNet dimension regressions and buckets, 40 EmoNet emotion heads, 4 quality heads, a 768-d VoiceCLAP embedding, a 192-d ECAPA speaker embedding and its cosine to the reference, Whisper <code>large-v3-turbo</code> ASR and WER (<code>large-v3-turbo</code> and not <code>small</code>, because half this corpus is German and small's German WER becomes the ranking signal instead of a check on it), duration, words-per-second, and a procedural caption written from what was <em>measured</em> rather than what was asked for.</p>
+<h3>4.3 The ranking formula actually in use</h3>
+<p>Verbatim from <code>vpgen.py</code>, with <code>w_blend = 0.6</code> for contained conditions and <code>1.0</code> otherwise:</p>
+<pre><code>reward = (genuineness + w_blend * blend + 1.25 * strength) * (1 - min(WER, 1))
+reward += 0.5 * z(-VULN)                       # contained conditions only
+
+over    = dur / clip(n_words / 2.8, 1.5, None)
+durceil = 1 / (1 + clip(over - 1.6, 0, None)**2)     # length-fit ceiling
+durmul  = clip(dur / 3.0, 0, 1)**2                   # duration floor, MIN_DUR = 3.0 s
+idrank  = 0.81 + 0.19 * clip(spk_sim, 0, 1) / 0.7    # identity is RANKED, weight 0.19
+idmul   = 0.25 if spk_sim &lt; 0.40 else 1.0            # only the floor rejects
+
+score   = reward * durmul * durceil * idrank * idmul</code></pre>
+<p><code>strength</code> is the target emotion head for emotion groups, the signed target dimension for VoiceNet groups, a <b>band fit</b> rather than a maximum for the moderate conditions (they are scored for <em>landing</em>, not for maximising), and <b>zero</b> for character groups, whose target is a voice and not a feeling.</p>
+<p>Three properties are deliberate and each was paid for:</p>
+<ul><li><b>Raw, not z-scored.</b> Re-ranking 28,698 stored candidates showed z-scoring normalises blend <em>within</em> a group, so a group whose takes are all poorly blended still hands its best one a good z-score and blend stops competing across groups. Raw moved median winner blend 3.65 → 4.74 (+30 %) and emotion strength 1.78 → 1.87. The cost is genuineness: median winner 0.738 → 0.626, about 15 %. That is a real trade and it is recorded rather than buried.</li><li><b><code>× (1 − WER)</code>, not the manual's <code>/ (1 + WER)</code>.</b> Measured on the same 28,698 candidates, the inverse form is too lenient to hold a runaway take down: swapping the forms moved 28 of 808 winners and made runaway takes <em>more</em> common (18 vs 14 over 2.5× expected length).</li><li><b>A length-fit ceiling instead.</b> With it, takes over 2.5× expected length drop 14 → 7 while the blend gain from raw scoring is kept in full.</li></ul>
+<p>The older z-scored score is still computed and stored as <code>score_z</code> so nothing already measured becomes unreproducible.</p>
+<h3>4.4 Where the time actually goes</h3>
+<p>Measured over all 842 groups of the reference build:</p>
+<table><tr><th class="">stage</th><th class="">GPU-h</th><th class="">share of billed</th></tr><tr><td class="">generation (<code>t_gen</code>)</td><td class=""><b>24.22</b></td><td class="">76.4 %</td></tr><tr><td class="">sensing and scoring (<code>t_score</code>)</td><td class=""><b>0.76</b></td><td class="">2.4 %</td></tr><tr><td class="">adapter load, mp3 encode, tar and parquet writes</td><td class="">2.39</td><td class="">7.5 %</td></tr><tr><td class="">model + sensor loading and the 150 s stagger</td><td class="">4.34</td><td class="">13.7 %</td></tr><tr><td class=""><b>billed total</b></td><td class=""><b>31.71</b></td><td class="">100 %</td></tr></table>
+<p>Scoring is <b>3.1 % of generation + scoring</b>, which is why no effort has been spent on it. Per block, cost per candidate is between 1.2 s (sports) and 3.0 s (explicitness), with VoiceNet at 2.33 s and emotions at 2.15 s.</p>
+<hr>
+<h2>5. Cost model, in GPU-hours</h2>
+<h3>5.1 The conversion, stated once</h3>
+<p>JUPITER's booster nodes carry <b>4 GH200 GPUs</b>, and Slurm bills the <b>whole node</b> at <b>288 core-hours per node-hour</b> regardless of how many GPUs are busy. Therefore:</p>
+<pre><code>1 node-hour = 4 GPU-hours = 288 core-hours
+1 GPU-hour  = 72 core-hours</code></pre>
+<p>Always pack 4 workers per node. Running one GPU per node quadruples every core-hour figure below for identical output.</p>
+<h3>5.2 Batch size is the largest single lever</h3>
+<p>Measured on this exact workload (LoRA merged, reference conditioning, <code>pipe_bench_b*.json</code>):</p>
+<table><tr><th class="">batch</th><th class="">× realtime</th><th class="">ms / clip</th></tr><tr><td class="">8</td><td class="">3.92</td><td class="">1254</td></tr><tr><td class="">16</td><td class="">5.69</td><td class="">859</td></tr><tr><td class="">32</td><td class="">7.69</td><td class="">637</td></tr><tr><td class=""><b>64</b></td><td class=""><b>8.88</b></td><td class=""><b>543</b></td></tr></table>
+<p>2.3× for a one-line change, no new engine, LoRA adapters still working. Batch 64 is the default.</p>
+<p>A retracted claim, kept so it is not re-derived: an earlier version of the cost page carried a "pipelined decode, 18.8×" column taken from a benchmark of a <em>different</em> workload (one repeated prompt, batch 256, no adapters, no reference conditioning). The port was written and measured on the real workload and produced <b>1.01×</b>. Decode is not a meaningful share of this loop.</p>
+<h3>5.3 The measured throughput to plan with</h3>
+<table><tr><th class="">run</th><th class="">texts per group</th><th class="">in-worker gen/GPU-h</th><th class="">× realtime</th><th class="">mean take</th></tr><tr><td class=""><code>rewritten</code> (<code>k325_age3_bg1</code>)</td><td class="">1 sentence, 32 takes</td><td class="">1,814</td><td class="">3.98</td><td class="">7.89 s</td></tr><tr><td class=""><b><code>full</code> (<code>emolia_c1675</code>), A+B</b></td><td class=""><b>32 + 16 different</b></td><td class=""><b>1,471</b></td><td class=""><b>2.99</b></td><td class=""><b>7.31 s</b></td></tr></table>
+<p>The ratio of the two realtime figures is <b>3.98 / 2.99 = 1.33×</b>, which independently confirms the 1.35× word-count-bucketing premium the plan assumed. It also means that premium is <b>already inside</b> the 1,471 figure and must not be applied again. <code>corpusplan.py</code> takes 1,500 gen/GPU-h from the <em>slowest single shard</em> of the same-text run and then multiplies the cost by 1.35, which double-counts; its 500-voice estimate of 1.36 M core-h is about 19 % above what the completed A+B build actually cost.</p>
+<p><b>The planning rate used here is the billed one</b>, because it is the only number that maps to Slurm accounting:</p>
+<table><tr><th class=""></th><th class="">value</th></tr><tr><td class="">candidates</td><td class="">40,247</td></tr><tr><td class="">in-worker wall (<code>throughput-*.json</code>)</td><td class="">27.37 GPU-h → 1,471 gen/GPU-h</td></tr><tr><td class="">Slurm elapsed × 4 GPUs (jobs 1305909_0..3)</td><td class=""><b>31.71 GPU-h → 1,269 gen/GPU-h</b></td></tr><tr><td class="">billed core-hours for one complete voice</td><td class=""><b>2,283</b></td></tr></table>
+<h3>5.4 Stage costs for 500 voices</h3>
+<table><tr><th class=""></th><th class="">candidates</th><th class="">GPU-h</th><th class="">core-h</th><th class="">% REFORMO</th><th class="">% LAIONIZE</th></tr><tr><td class="">Stage 1, text (500 distinct sets)</td><td class="">15,477,500 lines</td><td class=""><b>146</b></td><td class=""><b>10,478</b></td><td class="">0.02 %</td><td class="">0.03 %</td></tr><tr><td class="">Stage 2, audio</td><td class="">19,963,500</td><td class=""><b>15,731</b></td><td class=""><b>1,132,642</b></td><td class="">1.65 %</td><td class="">3.01 %</td></tr><tr><td class=""><b>Total</b></td><td class=""></td><td class=""><b>15,877</b></td><td class=""><b>1,143,120</b></td><td class=""><b>1.66 %</b></td><td class=""><b>3.04 %</b></td></tr></table>
+<p>Against the two budgets combined (106,278,952 core-h remaining) the build is <b>1.08 %</b>.</p>
+<p>Per voice: <b>31.75 GPU-h, 2,286 core-h, 6.04 GB</b>.</p>
+<table><tr><th class="">budget</th><th class="">remaining core-h</th><th class="">expires</th><th class="">this build</th></tr><tr><td class="">REFORMO</td><td class="">68,709,721</td><td class="">2026-12-31</td><td class="">1.66 %</td></tr><tr><td class="">LAIONIZE</td><td class="">37,569,231</td><td class="">2027-04-30</td><td class="">3.04 %</td></tr></table>
+<p>REFORMO expires first and is the larger pool, so spend REFORMO. On the current run-rate a large part of it will otherwise expire unspent.</p>
+<h3>5.5 Wall clock</h3>
+<p>3,933 node-hours of audio generation.</p>
+<table><tr><th class="">nodes</th><th class="">wall clock</th></tr><tr><td class="">32</td><td class="">5.1 days</td></tr><tr><td class=""><b>64</b></td><td class=""><b>2.6 days</b></td></tr><tr><td class="">128</td><td class="">1.3 days</td></tr></table>
+<hr>
+<h2>6. Output data formats</h2>
+<h3>6.1 Never loose files</h3>
+<p>At 500 voices the corpus is <b>19,963,500 audio objects</b>. Written as individual files on a shared parallel filesystem that is a metadata denial-of-service against yourself and everyone else on the machine. Everything goes into <b>WebDataset tar shards plus parquet</b>:</p>
+<table><tr><th class=""></th><th class="">loose</th><th class="">as built</th></tr><tr><td class="">objects for 500 voices</td><td class="">19,963,500</td><td class=""><b>8,000 tars + 8,000 parquet = 16,000</b></td></tr></table>
+<p>One tar and one or more parquet files per shard, 16 shards per voice.</p>
+<h3>6.2 Audio</h3>
+<p><b>MP3, 160 kbps CBR, 48 kHz, mono, at the model's native rate.</b> Encoded with <code>libmp3lame</code> directly, because libsndfile's MP3 writer takes a 0–1 "compression level" rather than a bitrate.</p>
+<p>The scorers all want 16 kHz, so a 16 kHz copy is what gets <em>scored</em>, but the 16 kHz copy is not what gets <em>stored</em>: an earlier version stored the downsampled signal, band-limiting the corpus to 8 kHz, and the HTML builders then re-encoded that to 40 kbps, giving two lossy passes over an already band-limited signal. Pages now embed the stored bytes unchanged.</p>
+<p>Measured: <b>20,265 bytes per second of audio</b> including tar headers, against the 20,000 B/s a 160 kbps stream implies.</p>
+<h3>6.3 Metadata: one parquet row per candidate</h3>
+<p>The current worker writes <b>76 columns</b>. (The reference build predates the length-fit ceiling and carries 71; the five added since are <code>dur_mult</code>, <code>dur_ceil</code>, <code>over_len</code>, <code>score_z</code>, <code>reward</code>.)</p>
+<table><tr><th class="">group</th><th class="">columns</th></tr><tr><td class="">identity</td><td class=""><code>gid</code>, <code>voice</code>, <code>profile</code>, <code>block</code>, <code>lang</code>, <code>emotion</code>, <code>condition</code>, <code>dim</code>, <code>level</code>, <code>edge</code>, <code>character</code>, <code>cond_key</code>, <code>parent_key</code>, <code>subset</code>, <code>sub_idx</code>, <code>cand</code>, <code>audio_key</code>, <code>ref_variant</code>, <code>ref_spk_emb_ref</code></td></tr><tr><td class="">text</td><td class=""><code>text</code>, <code>text_en</code>, <code>text_de</code>, <code>text_slot</code>, <code>caption</code>, <code>domain</code>, <code>hard_domain</code>, <code>burst_class</code>, <code>emotion_adapter_dropped</code></td></tr><tr><td class="">recipe</td><td class=""><code>adapters</code> (JSON), <code>sampling</code> (JSON), <code>mediathek</code></td></tr><tr><td class="">audio</td><td class=""><code>dur</code>, <code>empty</code>, <code>wps</code></td></tr><tr><td class="">ASR</td><td class=""><code>asr</code>, <code>wer</code></td></tr><tr><td class="">perceptual, summarised</td><td class=""><code>genuineness</code>, <code>blend</code>, <code>quality</code>, <code>emo_strength</code>, <code>emo_argmax</code></td></tr><tr><td class="">perceptual, full</td><td class=""><code>emonet</code> (<b>40</b> EmoNet heads, JSON), <code>voicenet</code> (<b>57</b> dimensions, JSON), <code>voicenet_bucket</code> (57), <code>quality_full</code> (4 heads: <code>content_enjoyment</code>, <code>overall_quality</code>, <code>speech_quality</code>, <code>background_quality</code>)</td></tr><tr><td class="">VoiceNet shortcuts</td><td class=""><code>vuln</code>, <code>tempo</code>, <code>chunk</code>, <code>dflu</code>, <code>arou</code>, <code>expl</code>, <code>tens</code>, <code>narration</code>, <code>dim_target</code></td></tr><tr><td class="">embeddings</td><td class=""><code>voiceclap</code> (<b>768</b>-d, fp16), <code>spk_emb</code> (<b>192</b>-d ECAPA, fp16), <code>spk_sim</code></td></tr><tr><td class="">ranking</td><td class=""><code>rank</code>, <code>score</code>, <code>reward</code>, <code>score_z</code>, <code>core</code>, <code>strength_raw</code>, <code>z_genuineness</code>, <code>z_blend</code>, <code>z_strength</code>, <code>z_containment</code>, <code>naturalness</code>, <code>id_mult</code>, <code>dur_mult</code>, <code>dur_ceil</code>, <code>over_len</code>, <code>w_blend</code>, <code>contained</code>, <code>moderate</code></td></tr><tr><td class="">caption</td><td class=""><code>caption_gen</code>, the procedural caption written from measurements</td></tr></table>
+<p>The reference speaker embedding is identical on every row of a shard, so it is stored once as <code>ref_spk_emb.npy</code> rather than 40,000 times.</p>
+<h3>6.4 Total bytes</h3>
+<p>Measured on the complete reference build and scaled by candidate count:</p>
+<table><tr><th class=""></th><th class="">per candidate</th><th class="">per voice (832 groups)</th><th class=""><b>500 voices</b></th></tr><tr><td class="">audio (tar)</td><td class="">148,122 B</td><td class="">5.91 GB</td><td class=""><b>2.96 TB</b></td></tr><tr><td class="">metadata (parquet)</td><td class="">3,217 B</td><td class="">0.128 GB</td><td class=""><b>64 GB</b></td></tr><tr><td class="">sidecars (<code>groupstats</code>, <code>identity</code>, <code>throughput</code>, <code>safety_gate</code>, <code>ref_spk_emb</code>)</td><td class=""></td><td class="">0.6 MB</td><td class="">0.3 GB</td></tr><tr><td class=""><b>total</b></td><td class=""><b>151,339 B</b></td><td class=""><b>6.04 GB</b></td><td class=""><b>3.02 TB</b></td></tr></table>
+<p>Alongside: 40,408 hours of audio, and 7.74 M written EN/DE sentence pairs (15.5 M lines), which are a few hundred MB of JSON and do not move the total.</p>
+<hr>
+<h2>7. Reproducibility</h2>
+<p><code>$NB</code> is <code>/e/data1/datasets/playground/mmlaion/schuhmann1/dramabox</code>. All Python runs under <code>$NB/env_transcribe/bin/python</code>.</p>
+<h3>7.1 Environment, identical in every job</h3>
+<pre><code>NB=/e/data1/datasets/playground/mmlaion/schuhmann1/dramabox
+export HF_HOME=$NB HF_HUB_CACHE=$NB/hfcache/.cache/dramabox
+export HUGGINGFACE_HUB_CACHE=$NB/hfcache/.cache/dramabox
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TMPDIR=$NB/tmp
+export XDG_CACHE_HOME=$NB/hfcache/xdg TRITON_CACHE_DIR=$NB/hfcache/triton
+export TOKENIZERS_PARALLELISM=false PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True</code></pre>
+<p><b>Compute nodes have no outbound internet.</b> Every Hugging Face asset must be fetched on the login node first, and <code>HF_HUB_OFFLINE=1</code> makes a missing asset fail immediately with a cache error instead of hanging on a connection timeout. Prefetch is <code>$NB/vprof/code/prefetch.py</code> and <code>prefetch2.py</code>. The assets are: the base model, the MOSS audio tokenizer, 40 emotion LoRAs, 114 VoiceNet dimension LoRAs, 64 vocal-burst LoRAs, the character LoRA repo, the sports and explicitness LoRAs, <code>openai/whisper-large-v3-turbo</code>, <code>speechbrain/spkrec-ecapa-voxceleb</code>, <code>laion/Empathic-Insight-Voice-Plus</code>, <code>google/gemma-4-E4B-it</code>, the reference-voice dataset and the FineTranslations German subset.</p>
+<h3>7.2 The four commands, in order</h3>
+<p><b>Step 0, login node, per voice.</b> Builds the 832-group matrix, the 10-group addendum and a per-voice manifest, and extracts the reference audio at the best-DNSMOS variant.</p>
+<pre><code>$NB/env_transcribe/bin/python $NB/vprof/code/vpprep2.py --voice &lt;cid&gt; --cands-a 32 --cands-b 16
+# asserts len(groups) == 832; writes work/groups_&lt;cid&gt;.json, groupsiso_&lt;cid&gt;.json,
+#                                    manifest_&lt;cid&gt;.json</code></pre>
+<p><code>vpprep2.py</code> writes a <b>per-voice</b> manifest. There used to be one shared <code>manifest.json</code>, which every running worker re-reads at startup, so preparing a second voice while a job was in flight swapped the reference wav out from under it.</p>
+<p><b>Step 1, text.</b> 4 GPUs, 4 shards, then merge and verify.</p>
+<pre><code>for i in 0 1 2 3; do
+  CUDA_VISIBLE_DEVICES=$i $NB/env_transcribe/bin/python -u $NB/vprof/code/vptext.py \
+    --voice &lt;cid&gt; --shard $i --nshards 4 --batch 128 &gt; logs/vptext_g$i.log 2&gt;&amp;1 &amp;
+  sleep 150
+done; wait
+$NB/env_transcribe/bin/python -u $NB/vprof/code/vptextmerge.py &lt;cid&gt;
+# writes work/texts_&lt;cid&gt;.json and prints the EN/DE pairing rate, hard-domain symbol
+# leakage, burst balance, safety rejections and short-pool report</code></pre>
+<p><b>Step 2, smoke test.</b> One GPU, a handful of groups from every block including character and a burst-carrying one, at small N. Two full runs were burned by skipping this.</p>
+<pre><code>$NB/env_transcribe/bin/python -u $NB/vprof/code/vpgen.py --voice &lt;cid&gt; --profile SMOKE \
+  --manifest $NB/vprof/work/manifest_&lt;cid&gt;.json \
+  --groups   $NB/vprof/work/groups_smoke_&lt;cid&gt;.json \
+  --texts    $NB/vprof/work/texts_&lt;cid&gt;.json \
+  --mth-lambda 0 --cands 4 --cands-b 2 --batch 8 --shard 0 --nshards 1 --out $NB/vprof/smoke</code></pre>
+<p><b>Step 3, the full build.</b> 4 array tasks × 1 node × 4 GPUs = 16 shards, per voice.</p>
+<pre><code>#SBATCH --account=reformo --partition=booster --nodes=1 --gres=gpu:4
+#SBATCH --ntasks=1 --cpus-per-task=64 --time=10:00:00 --array=0-3
+for i in 0 1 2 3; do
+  SHARD=$(( SLURM_ARRAY_TASK_ID * 4 + i ))
+  CUDA_VISIBLE_DEVICES=$i $NB/env_transcribe/bin/python -u $NB/vprof/code/vpgen.py \
+    --voice &lt;cid&gt; --profile FULL \
+    --manifest $NB/vprof/work/manifest_&lt;cid&gt;.json \
+    --groups   $NB/vprof/work/groups_all_&lt;cid&gt;.json \
+    --texts    $NB/vprof/work/texts_&lt;cid&gt;.json \
+    --mth-lambda 0 --cands 32 --cands-b 16 --batch 64 \
+    --shard $SHARD --nshards 16 --out $NB/vprof/full &amp;
+  sleep 150
+done; wait</code></pre>
+<p><code>--mth-lambda 0</code>: the Mediathek German LoRA is <b>not</b> merged. A 13,760-generation sweep found 0.25 / 0.50 / 0.75 indistinguishable from zero and λ = 1.00 producing runaway takes 69 % of the time; the apparent +0.815 genuineness gain was a scorer artefact.</p>
+<h3>7.3 The 150 s stagger, which is not politeness</h3>
+<p>Four concurrent <code>import transformers</code> plus four model loads off the <code>/e</code> filesystem put <b>every</b> worker into uninterruptible D state. At a 45 s stagger this cost a 45-minute dead job. 150 s per worker within a node is the working value. The stagger is <b>per node</b>, so array tasks still start in parallel and only the four workers inside one node are staggered.</p>
+<h3>7.4 Sharding and seeds</h3>
+<p>Groups are sliced contiguously: <code>chunk = ceil(len(groups) / nshards)</code>, worker <code>s</code> takes <code>groups[s<em>chunk : (s+1)</em>chunk]</code>. Seeds are derived from the group id, so a shard boundary moving does not change any group's output:</p>
+<pre><code>seed = (zlib.crc32(g[&quot;gid&quot;].encode()) % 100000) * 1000 + 7000 + gi
+torch.manual_seed(seed + 7919 * sub_batch_index)</code></pre>
+<p><code>gi</code> is the group's index <em>within the shard</em>, so re-sharding does perturb the seed; the group id term dominates and reproducibility is at the level of "the same shard layout reproduces exactly".</p>
+<h3>7.5 Resume</h3>
+<p>A worker writes <code>shard&amp;lt;NNN&amp;gt;.DONE</code> and appends one JSON line per group to <code>groupstats-&amp;lt;NNN&amp;gt;.jsonl</code>. On restart it reads that file and skips completed groups. A <b>failed</b> group is explicitly <em>not</em> counted as done: it writes a row carrying its gid, and an earlier unconditional <code>done.add(d[&quot;gid&quot;])</code> turned any transient failure into a permanent hole no restart could fill.</p>
+<hr>
+<h2>8. Pre-flight checklist</h2>
+<p>Run all of it on the login node before submitting 500 voices. Every command below has been executed against the reference artefacts and the expected outputs are what those runs printed.</p>
+<h3>8.1 The group list carries the A/B keys</h3>
+<pre><code>$NB/env_transcribe/bin/python - &lt;&lt;&#x27;EOF&#x27;
+import json, collections
+W=&quot;/e/data1/datasets/playground/mmlaion/schuhmann1/dramabox/vprof/work&quot;
+g=json.load(open(f&quot;{W}/groups_emolia_c1675.json&quot;))
+assert len(g)==832, len(g)
+for k in (&quot;cond_key&quot;,&quot;parent_key&quot;,&quot;caption_tmpl&quot;):
+    n=sum(1 for x in g if k in x)
+    assert n==len(g), f&quot;{k}: only {n}/{len(g)}&quot;
+print(&quot;groups&quot;, len(g), collections.Counter(x[&quot;block&quot;] for x in g))
+print(&quot;cond_key&quot;, len({x[&quot;cond_key&quot;] for x in g}), &quot;parent_key&quot;, len({x[&quot;parent_key&quot;] for x in g}))
+EOF</code></pre>
+<pre><code>groups 832 Counter({&#x27;voicenet&#x27;: 456, &#x27;emotion&#x27;: 320, &#x27;edge&#x27;: 28, &#x27;character&#x27;: 24, &#x27;sports&#x27;: 2, &#x27;explicit&#x27;: 2})
+cond_key 416 parent_key 125</code></pre>
+<p><b>If <code>cond_key</code> is 0, stop.</b> That is the defect in §2 and the run will silently produce 32 takes of one sentence per group.</p>
+<h3>8.2 Pool sizes, EN/DE parallelism, word floor, bursts, hard-domain share</h3>
+<pre><code>$NB/env_transcribe/bin/python - &lt;&lt;&#x27;EOF&#x27;
+import json, collections, statistics
+W=&quot;/e/data1/datasets/playground/mmlaion/schuhmann1/dramabox/vprof/work&quot;
+T=json.load(open(f&quot;{W}/texts_emolia_c1675.json&quot;)); A,B=T[&quot;A&quot;],T[&quot;B&quot;]
+assert all(len(v)==32 for v in A.values()), &quot;A pool not 32&quot;
+assert all(len(v)==16 for v in B.values()), &quot;B pool not 16&quot;
+assert all(sorted(x[&quot;idx&quot;] for x in v)==list(range(32)) for v in A.values())
+assert all(sorted(x[&quot;idx&quot;] for x in v)==list(range(16)) for v in B.values())
+e=[x for s in (A,B) for v in s.values() for x in v]; n=len(e)
+print(f&quot;A {len(A)} pools x32 = {sum(map(len,A.values()))}, B {len(B)} pools x16 = {sum(map(len,B.values()))}&quot;)
+both=sum(1 for x in e if x[&quot;en&quot;].strip() and x[&quot;de&quot;].strip())
+fell=sum(1 for x in e if x[&quot;de&quot;].strip()==(x.get(&quot;seed_de&quot;) or &quot;&quot;).strip() and x[&quot;de&quot;].strip())
+print(f&quot;EN/DE pairs {both-fell}/{n} = {100*(both-fell)/n:.3f}%  empty DE {n-both}  seed-fallback {fell}&quot;)
+short=sum(1 for x in e if x[&quot;n_words_en&quot;]&lt;10 or x[&quot;n_words_de&quot;]&lt;10)
+print(f&quot;under the 10-word floor in either language: {short} = {100*short/n:.2f}%&quot;)
+bc=collections.Counter(x[&quot;burst&quot;][0] for x in e if x[&quot;burst&quot;])
+print(f&quot;bursts {sum(bc.values())} = {100*sum(bc.values())/n:.1f}%, {len(bc)} classes, &quot;
+      f&quot;min {min(bc.values())} max {max(bc.values())}&quot;)
+hd=collections.Counter(x[&quot;hard&quot;] for x in e if x[&quot;hard&quot;])
+print(f&quot;hard {sum(hd.values())} = {100*sum(hd.values())/n:.2f}%, {len(hd)} domains {sorted(hd.values())}&quot;)
+print(f&quot;safety_blocked {sum(1 for x in e if x[&#x27;safety_blocked&#x27;])}&quot;)
+EOF</code></pre>
+<pre><code>A 421 pools x32 = 13472, B 125 pools x16 = 2000
+EN/DE pairs 15466/15472 = 99.961%  empty DE 6  seed-fallback 0
+under the 10-word floor in either language: 298 = 1.93%
+bursts 2635 = 17.0%, 59 classes, min 25 max 62
+hard 1547 = 10.00%, 10 domains [154, 154, 154, 155, 155, 155, 155, 155, 155, 155]
+safety_blocked 3</code></pre>
+<p><b>The word floor does not currently pass.</b> <code>vpspec.MIN_WORDS = 10</code> is documented and enforced on every hand-written text table (<code>chartexts.py</code>, <code>expltexts2.py</code>, <code>mkexp3.py</code> all assert it), but <code>vptext.py</code> does <b>not</b> enforce it on generated lines: 82 English and 261 German lines fall below 10 words, 298 entries in total. The shortest English line is 6 words. See §11.</p>
+<h3>8.3 Every adapter key resolves in the local cache</h3>
+<p>There is no outbound internet on the compute nodes, so an unresolved key is a dead job, and PEFT's error for a config-without-weights directory is <code>Repo id must be in the form &#x27;repo_name&#x27;...</code>, which points nowhere near the cause.</p>
+<pre><code>HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 $NB/env_transcribe/bin/python - &lt;&lt;&#x27;EOF&#x27;
+import json, sys
+NB=&quot;/e/data1/datasets/playground/mmlaion/schuhmann1/dramabox&quot;
+sys.path.insert(0, f&quot;{NB}/vprof/code&quot;); import vpgen
+W=f&quot;{NB}/vprof/work&quot;
+keys=set()
+for f in (&quot;groups_emolia_c1675.json&quot;,&quot;groupsiso_emolia_c1675.json&quot;):
+    for g in json.load(open(f&quot;{W}/{f}&quot;)): keys |= set(g[&quot;adapters&quot;])
+T=json.load(open(f&quot;{W}/texts_emolia_c1675.json&quot;))
+for s in (&quot;A&quot;,&quot;B&quot;):
+    for v in T[s].values():
+        for x in v:
+            if x[&quot;burst&quot;]: keys.add(&quot;burst_&quot;+x[&quot;burst&quot;][0])
+bad=[]
+for k in sorted(keys):
+    try: vpgen.adapter_dir(k)
+    except Exception as ex: bad.append((k, str(ex)[:100]))
+print(f&quot;resolved {len(keys)-len(bad)}/{len(keys)}&quot;); [print(&quot;MISSING&quot;,*b) for b in bad]
+EOF</code></pre>
+<pre><code>resolved 233/233</code></pre>
+<p><b>169</b> of those come from the 832-group matrix itself (40 emotion + 114 VoiceNet + 12 character + <code>char_human</code> + <code>sports</code> + <code>explicit</code>), 5 from the isolated-burst addendum, and <b>59</b> are burst adapters reachable only through the text pools. Checking the matrix alone would miss a third of them.</p>
+<h3>8.4 Safety gate on the reference voice</h3>
+<pre><code>grep -h SAFETY $NB/vprof/full/&lt;cid&gt;/PFULL/../*/*.log | head
+cat  $NB/vprof/full/&lt;cid&gt;/PFULL/safety_gate.json</code></pre>
+<p>Expect <code>explicit_allowed</code> true or a <code>reason</code> naming which of <code>ei_age_ok</code>, <code>agev_ok</code>, <code>card_ok</code> failed. A failing gate skips exactly the 2 explicitness groups and is not an error.</p>
+<h3>8.5 After the smoke run, before the array</h3>
+<pre><code>$NB/env_transcribe/bin/python - &lt;&lt;&#x27;EOF&#x27;
+import glob, pandas as pd
+d=sorted(glob.glob(&quot;/e/data1/datasets/playground/mmlaion/schuhmann1/dramabox/vprof/smoke/*/PSMOKE/meta-*.parquet&quot;))
+df=pd.concat([pd.read_parquet(p) for p in d], ignore_index=True)
+print(&quot;columns&quot;, len(df.columns))
+print(df.groupby([&quot;gid&quot;,&quot;subset&quot;]).size().unstack(fill_value=0))
+print(&quot;distinct texts per group:&quot;, df.groupby(&quot;gid&quot;).text.nunique().describe())
+EOF</code></pre>
+<p><code>distinct texts per group</code> <b>must equal the candidate count</b>, not 1. A count of 1 is the §2 defect reappearing.</p>
+<hr>
+<h2>9. Quality control</h2>
+<table><tr><th class="">control</th><th class="">value</th><th class="">where</th></tr><tr><td class="">Duration floor</td><td class=""><code>MIN_DUR = 3.0 s</code>, applied as <code>clip(dur/3, 0, 1)**2</code></td><td class="">ranking</td></tr><tr><td class="">Length-fit ceiling</td><td class="">expected <code>words / 2.8</code> wps, free up to 1.6×, quadratic falloff beyond</td><td class="">ranking</td></tr><tr><td class="">Minimum words per line</td><td class=""><code>MIN_WORDS = 10</code></td><td class="">text side, <b>not currently enforced by <code>vptext.py</code></b></td></tr><tr><td class="">Speaker floor</td><td class=""><code>SPK_FLOOR = 0.40</code>, score × 0.25 below it; identity otherwise <b>ranked</b> at weight 0.19</td><td class="">ranking</td></tr><tr><td class="">Resample flag</td><td class=""><code>SPK_RESAMPLE = 0.58</code></td><td class="">recorded, not acted on automatically</td></tr><tr><td class="">Empty decode</td><td class="">detected, counted per group as <code>n_empty</code>, never assumed away</td><td class="">worker</td></tr><tr><td class="">All-caps guard</td><td class="">every plan line passes <code>denorm_caps</code>; only the quoted SCRIPT line, never <code>GENERAL:</code>/<code>SCRIPT:</code></td><td class="">worker</td></tr><tr><td class="">WER reference</td><td class="">inline tags stripped in <b>all three</b> notations before scoring</td><td class=""><code>BURST_TAG_RE</code></td></tr></table>
+<p>The duration floor crushes short takes rather than banning them, so a group where every candidate is short still resolves to its best member instead of ranking arbitrarily. It exists because nothing in the older score preferred a longer take and short takes had a perverse advantage: fewer words means fewer chances to misread, so WER trends to zero and the perceptual terms are computed over a nearly silent clip.</p>
+<h3>9.1 The publishing rule that is easy to get wrong</h3>
+<p><code>audio_key</code> is only <code>&amp;lt;gid&amp;gt;.cNNN.mp3</code> and is <b>not unique across runs</b>: two different run directories mint the same names. Exporting the winning take by matching <code>audio_key</code> alone means whichever tar is scanned first wins, and the result is a page whose scores come from the current run and whose audio comes from an older one. That happened: 89 regenerated groups played their pre-regeneration take under a "NEW" badge, with metadata claiming 5.76 s over a 0.24 s clip.</p>
+<p><b>Match on the pair <code>(source_dir, audio_key)</code>, clear the output directory before writing, and assert each exported file's size is consistent with the duration its metadata claims</b> (≈ 20 kB per second at 160 kbps). <code>profilepage.py</code> does all three.</p>
+<h3>9.2 Per-cell adoption, on group means</h3>
+<p>When a regeneration recipe is evaluated against a baseline, adoption is decided <b>per cell</b> (recipe × language) on the <b>mean over all 32 candidates of each group</b>, not on the top-1 take, and the decision is then applied blind to every group in that cell. Cells whose delta is not positive revert to the original take with no badge.</p>
+<p>Two reasons, both recorded in <code>mkupdated3.py</code>: the ranking formula changed between rounds, so top-1 would measure the recipe and the ranker together; and picking the better run group-by-group selects on exactly the noise being measured. A cell is a rule decided by 32 to 2,048 candidates and then applied blind. Note honestly that the threshold is literally <code>delta &amp;gt; 0</code> with no significance test and no margin.</p>
+<hr>
+<h2>10. Voice conversion is not in the default path</h2>
+<p>The profiles sound best <b>without</b> Chatterbox voice conversion. VC is <b>not</b> run in the 500-voice build. It exists only as an optional repair for an individual group whose selected take falls below <code>SPK_VC = 0.45</code> speaker similarity, and even then it is kept only if ECAPA similarity rises <b>and</b> DNSMOS does not fall. <code>costmodel.py</code> still budgets a VC twin for the top-3 of every character group; that budget is <b>not</b> carried into the figures in §5, and the character block is generated once, straight.</p>
+<hr>
+<h2>11. Risks and open problems</h2>
+<p><b>Blocking, must be fixed or consciously accepted before the run.</b></p>
+<p>1. <b>The word floor is not enforced on generated text.</b> 298 of 15,472 pool entries (1.93 %) fall below <code>MIN_WORDS = 10</code> in at least one language: 82 EN, 261 DE, shortest 6 words. At ~2.8 words/s a line under 8 words cannot fill three seconds however slowly it is read, and the duration floor then crushes those candidates in the ranking. Measured on the completed build, <b>482 of 39,927 candidates (1.21 %)</b> were spoken from a line under 10 words; their mean score is <b>0.084 against 0.137</b> for the rest, and 39 of them landed under <code>MIN_DUR</code>. Across 500 voices that is <b>241,000 substantially devalued generations</b>. The fix is a post-filter and re-ask in <code>vptext.py</code>, mirroring the retry loop the hard domains already have. 2. <b><code>vpgen.py</code> does not verify that <code>--texts</code> was supplied and matches the group list.</b> Omitting it is loud for a correct group list and silent for a legacy one. A three-line assertion at startup (<code>if any(&quot;cond_key&quot; in g for g in groups): assert TEXTS[&quot;A&quot;]</code>) removes the entire class of failure that produced today's published profile. 3. <b>The burst density in the plan and in the code disagree</b> (50 % vs <code>BURST_TEXT_FRACTION = 0.25</code>, realised 17.0 %). Decide which is intended.</p>
+<p><b>Known and accepted.</b></p>
+<p>4. <b>Six empty German lines</b> per text set, all <code>urls_code</code> hard-domain slots, costing 9 groups one candidate each. 0.04 %. 5. <b>The character block draws from the generic sentence pool.</b> <code>chartexts.py</code> holds 24 hand-written in-character lines precisely because a pool sentence about a gym membership fights a dragon adapter, but it is not wired into <code>vptext.py</code>. Measured: the <code>C|dragon</code> A-pool opens with a sentence about a Higher Regional Court judgment. 24 of 832 groups. 6. <b>Speaker identity degrades at high emotion λ.</b> <code>LAMBDA_INTENSE</code> reaches 1.9 for seven emotions, and ECAPA similarity to the reference falls sharply above ~1.25; the intense conditions of those emotions average <b>below</b> the 0.40 reject floor. Nothing is dropped, every take is stored and flagged, and a downstream user must filter on <code>spk_sim</code>. Over the reference build the mean <code>spk_sim</code> is 0.322 and <b>72.9 %</b> of candidates sit below 0.40. This is the single largest quality caveat on the corpus and it is not fixed by scale. 7. <b>German conditioning is weaker than English.</b> Measured over 323,200 candidates on the earlier build: mean speaker similarity <b>0.376 DE vs 0.578 EN</b>. Half the corpus is the weaker half. 8. <b>No human listening study.</b> Everything called "quality" here is the automatic sensor stack, which agrees with a human listener at roughly ρ ≈ +0.21 on spoken material. Every ranking claim inherits that. 9. <b>The hard-domain list is a taxonomy, not a literature review.</b> Ten domains chosen from known TTS normalisation failure modes; no fresh survey was done. 10. <b>The character-cluster selection is editorial.</b> The plan budgets 12 character LoRAs and never names them; the public mirror ships 120 adapters with no per-adapter metadata to select on. The 12 were chosen by rule (drop the numbered <code>voice-NN</code> timbres, drop <code>human</code> because it is already the scaffold, then take 12 maximally distinct archetypes with at most one of any near-duplicate family). There is no measured quality signal behind that choice. 11. <b>Throughput is measured on one voice.</b> The 1,269 gen/GPU-h billed figure comes from a single complete build. Group-to-group and voice-to-voice variance is real; the four array tasks of that build ranged 1.92 h to 2.02 h wall, so the spread is small, but 500 voices will include references that behave differently. 12. <b>Sensor and adapter versions must be pinned.</b> 500 voices is days of wall clock across many jobs. A silently updated Whisper, ECAPA or VoiceNet head part-way through makes the corpus internally incomparable, which is the one failure mode that cannot be repaired after the fact. <code>HF_HUB_OFFLINE=1</code> plus a frozen cache directory is the mechanism; verify the cache is not refreshed between jobs.</p>
+<hr>
+<p><em>Part of the <a href="../index.html">MOSS voice-acting manual</a>. See also <a href="prompt_notation.html">prompt notation</a> for the bracket, capitalisation and line-length rules the text pipeline has to satisfy, and <a href="text_carries_the_condition.html">text carries the condition</a> for what the written line can and cannot do for a condition.</em></p>
+</body></html>
