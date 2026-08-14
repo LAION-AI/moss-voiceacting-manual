@@ -1,0 +1,114 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Running the 500-voice build on a supercomputer</title><style>body{font-family:system-ui,Segoe UI,Arial;background:#0e1117;color:#e6edf3;margin:0 auto;
+padding:30px;max-width:1000px;line-height:1.6}
+a{color:#58a6ff}h1{margin:0 0 6px;font-size:27px}h2{margin:30px 0 8px;font-size:20px;
+border-bottom:1px solid #21262d;padding-bottom:5px}h3{margin:20px 0 6px;font-size:16px;color:#c9d6e4}
+.lead{color:#8b949e;font-size:14px}
+code{background:#161b22;border:1px solid #30363d;padding:1px 5px;border-radius:4px;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0;display:block;overflow-x:auto}
+td,th{border:1px solid #30363d;padding:6px 9px;text-align:left;white-space:nowrap}
+th{color:#8b949e;font-weight:600;background:#161b22}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+blockquote{background:#161b22;border-left:3px solid #58a6ff;border-radius:0 8px 8px 0;
+margin:12px 0;padding:9px 15px;color:#c7cdda;font-size:13.5px}
+ul{padding-left:22px}li{margin:6px 0;font-size:14px}
+hr{border:0;border-top:1px solid #21262d;margin:26px 0}
+em{color:#a9b6c6}
+.dose-row{border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin:12px 0;background:#12161d}
+.dclass{font-weight:700;font-size:14px;margin-bottom:7px;color:#e6edf3}
+.dcols{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.dcol{border:1px solid #263041;border-radius:8px;padding:8px;background:#0f141b}
+.dcol.rec{border-color:#2f6f4f;background:#101d16}
+.dcol.bad{border-color:#6b3a3a;background:#1a1210}
+.dh{font-size:12px;font-weight:700;color:#c9d6e4;margin-bottom:2px}
+.dcol.rec .dh{color:#7fd8a4} .dcol.bad .dh{color:#ff9c9c}
+.dm{font-size:10.5px;color:#8b949e;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dcol audio{width:100%;height:28px;display:block;margin-top:4px}
+.mm{font-size:10px;color:#8b949e;font-variant-numeric:tabular-nums}
+pre{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 12px;margin:12px 0;
+overflow-x:auto;font-size:12.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+pre code{background:none;border:0;padding:0;font-size:inherit}</style></head><body>
+<p><a href="../index.html">← Manual hub</a></p>
+<h1>Running the 500-voice build on a supercomputer</h1>
+<p><em>Execution note, Aug 2026. The companion to <a href="scaling_to_500_voices.md">Scaling the voice-profile corpus to 500 voices</a>, which is the plan and the cost model. This page is what actually happened when the plan was run: the Slurm array shape, the worker stagger, how a voice that dies is made re-runnable, the throughput measured at scale, and the two defects the run found in the corpus that had already shipped.</em></p>
+<p>Hardware: JUPITER (JSC), <code>booster</code> partition, GH200 nodes, 4 GPUs per node, whole-node billing.</p>
+<hr>
+<h2>0. The shape in one table</h2>
+<table><tr><th class=""></th><th class="">value</th></tr><tr><td class="">Voices</td><td class=""><b>500</b></td></tr><tr><td class="">Groups per voice</td><td class=""><b>842</b> (832 matrix + 10 burst-isolated)</td></tr><tr><td class="">Candidates per voice</td><td class=""><b>40,256</b> (832 x 48, 10 x 32)</td></tr><tr><td class="">Candidates total</td><td class=""><b>20,128,000</b></td></tr><tr><td class="">Slurm arrays</td><td class=""><b>2</b> — text, then generation</td></tr><tr><td class="">Array elements</td><td class=""><b>one voice each</b>, <code>0-499</code></td></tr><tr><td class="">Nodes held concurrently</td><td class=""><b>160</b> (<code>%160</code> throttle)</td></tr><tr><td class="">GPUs per element</td><td class="">4, one worker each via <code>CUDA_VISIBLE_DEVICES</code></td></tr><tr><td class="">Worker stagger inside a node</td><td class=""><b>150 s</b> (generation), 210 s (text)</td></tr><tr><td class="">Measured generation throughput</td><td class=""><b>1,405–1,481 gen/GPU-h</b></td></tr><tr><td class="">Measured cost per voice</td><td class=""><b>28.65 GPU-h</b> in-process, <b>31.2 GPU-h</b> billed</td></tr><tr><td class="">Storage per voice</td><td class="">5.7–6.1 GB (4 WebDataset tars + parquet)</td></tr></table>
+<hr>
+<h2>1. One voice per array element</h2>
+<p>The obvious design is to slice: 500 voices over 64 elements, 8 voices each. Don't.</p>
+<p><code>MaxArraySize</code> on this cluster is 1001, so 500 elements is <b>one job</b>, not 500 jobs, and it costs the scheduler nothing extra. What it buys is that <b>the unit of failure equals the unit of re-queue</b>. A 26-hour run across 160 nodes <em>will</em> lose nodes. With 8-voice slices, one bad node orphans seven healthy voices along with the one that was mid-flight, and the sweeper's only options are to redo all eight or to open up the slice. With one voice per element, a dead node costs exactly one voice.</p>
+<pre><code>#SBATCH --nodes=1
+#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=64
+#SBATCH --time=12:00:00
+#SBATCH --array=0-499%160
+
+V=$(python -c &quot;import json;print(json.load(open(&#x27;voices_all500.json&#x27;))[$SLURM_ARRAY_TASK_ID])&quot;)</code></pre>
+<p><b>Sizing the throttle.</b> Total node-hours are fixed by the work, so the throttle only chooses wall clock and how much of the machine you hold at once. 500 x 7.79 node-h = 3,895 node-h, so 128 nodes is ~30.5 h and 160 is ~24.4 h. Pick against the QOS wall limit, not against the partition size: here <code>part_boost</code> caps an element at <b>12 h</b> while an element needs <b>7.8 h</b>, so the run is throughput-limited, not wall-limited, and there is 4 h of headroom for a slow voice before anything has to be re-queued at all.</p>
+<hr>
+<h2>2. The 150-second stagger, and why it is not optional</h2>
+<p>Four workers starting at once on one node each load, from a shared parallel filesystem: a 4.55 B TTS model, Whisper-large-v3-turbo, ECAPA, and the perceptual scorer stack. Doing that concurrently puts <b>every worker on the node into uninterruptible sleep (D state)</b>. Not slow — wedged. On this project a 45-second stagger produced a dead 45-minute job.</p>
+<pre><code>for i in 0 1 2 3; do
+  CUDA_VISIBLE_DEVICES=$i python -u vpgen.py --shard $i --nshards 4 ... &amp;
+  sleep 150
+done
+wait</code></pre>
+<p>The cost is real and worth stating: 450 s of the ~7.8 h element is spent sleeping, about 1.6 %. On the <b>text</b> stage, where the actual work per GPU is only ~2 minutes, a 3 x 210 s stagger is <b>10.5 of the 17 minutes</b>. That looks like an obvious thing to optimise — run four <em>different</em> voices on the node instead, one per GPU, at <code>--nshards 1</code>. Don't do that either: the shard index decides which slots each worker owns, so changing it changes the generated texts. Pay the stagger; it is 2.5 % of the run.</p>
+<hr>
+<h2>3. Per-voice resumability</h2>
+<p>Three layers, and they do different jobs.</p>
+<p><b>Layer 1 — shard markers, written by the worker.</b> Each of the 4 workers writes <code>shard00N.DONE</code> on clean exit and returns immediately if it finds one. This makes a re-submitted element cheap.</p>
+<p><b>Layer 2 — group-level resume, from the data.</b> Each worker appends one JSON line per finished group to <code>groupstats-00N.jsonl</code> and, on start, reads it back to skip what it already did. The subtlety that cost this project three runs:</p>
+<blockquote>A <b>failed</b> group must not count as done. It writes a row carrying its <code>gid</code> too, so an unconditional <code>done.add(d[&quot;gid&quot;])</code> turns any transient failure — a missing adapter, an OOM — into a permanent hole that no restart can ever fill.</blockquote>
+<pre><code>if d.get(&quot;error&quot;) or d.get(&quot;skipped&quot;) == &quot;retry&quot;:
+    n_err += 1
+    continue          # will be retried
+done.add(d[&quot;gid&quot;])</code></pre>
+<p><b>Layer 3 — the voice-level gate, written by a verifier and by nothing else.</b> A clean process exit is not the same as a whole voice. <code>VOICE.DONE</code> is written only when <b>all five</b> hold:</p>
+<p>1. four shard markers present; 2. 842 distinct gids in the groupstats; 3. 40,256 parquet rows, all <code>audio_key</code> distinct; 4. 40,256 tar members, no duplicates; 5. <b>the parquet key set and the tar member set are the same set.</b></p>
+<p>Check 5 is not implied by 3 and 4. A restart that wrote one group's audio twice and its rows once passes both counts and fails only the set comparison. Verify per voice and report the short ones by name — an aggregate hides exactly what it should surface, since 499 whole voices and one at 12,000 candidates still reports 99.95 % of the expected total.</p>
+<p><b>The sweeper.</b> After the array drains, re-verify all 500 from the data, write the short ones to a fresh list, submit a new array over exactly those, repeat. Two rules make it safe:</p>
+<ul><li><b>never two writers on one voice.</b> The tar is opened in append mode; two processes appending interleave members and produce a file whose members are individually readable and collectively wrong. So the sweeper waits for the previous round to leave the queue, and it is the only submitter.</li><li><b>stop when a round makes no progress twice.</b> That means the failure is systematic and a human should look, rather than the sweeper burning another 160 nodes on it.</li></ul>
+<hr>
+<h2>4. Adapter cache: sort the groups, not the queue</h2>
+<p>With 114 dimension adapters, 40 emotion adapters and an LRU of resident adapters, thrashing the loader is the easiest way to waste a GPU-hour. Sort each voice's groups so consecutive groups share adapters, then hand each worker a <b>contiguous</b> slice:</p>
+<pre><code>groups.sort(key=lambda g: (g[&quot;block&quot;], g.get(&quot;emotion&quot;) or g.get(&quot;dim&quot;) or g.get(&quot;edge&quot;) or &quot;&quot;,
+                           g.get(&quot;condition&quot;) or g.get(&quot;level&quot;) or &quot;&quot;, g[&quot;lang&quot;]))
+chunk = -(-len(groups) // args.nshards)
+groups = groups[args.shard * chunk:(args.shard + 1) * chunk]</code></pre>
+<p>A <b>stride</b> (<code>groups[shard::nshards]</code>) is the trap: it hands each worker groups N apart in the sorted order, so no two consecutive groups share an adapter and the loader thrashes on every single group — undoing the sort completely. Ordering the <em>voices</em> across the array does nothing, because each element is a fresh process with a cold adapter cache either way.</p>
+<hr>
+<h2>5. Measured throughput</h2>
+<p>From the ten <code>throughput-*.json</code> files of one complete 10-voice build, all at 40,256 candidates over 842 groups:</p>
+<table><tr><th class="">voice</th><th class="">GPU-h</th><th class="">gen/GPU-h</th></tr><tr><td class="">emolia_c1699</td><td class="">26.31</td><td class="">1,530</td></tr><tr><td class="">k91_age5_bg0</td><td class="">27.28</td><td class="">1,476</td></tr><tr><td class="">emolia_c1682</td><td class="">27.44</td><td class="">1,467</td></tr><tr><td class="">anime_088</td><td class="">27.90</td><td class="">1,443</td></tr><tr><td class="">emolia_c0542</td><td class="">27.98</td><td class="">1,439</td></tr><tr><td class="">k325_age3_bg1</td><td class="">28.22</td><td class="">1,426</td></tr><tr><td class="">k10_age3_bg1</td><td class="">28.91</td><td class="">1,393</td></tr><tr><td class="">k395_age3_bg1</td><td class="">29.06</td><td class="">1,385</td></tr><tr><td class="">emolia_c2570</td><td class="">31.07</td><td class="">1,296</td></tr><tr><td class="">mediathek_0184</td><td class="">32.34</td><td class="">1,245</td></tr></table>
+<p>Mean <b>28.65 GPU-h</b> per voice at <b>1,405 gen/GPU-h</b>.</p>
+<p><b>Report the billed number, not this one.</b> Whole-node billing counts wall clock, and <code>sacct</code> gives the same ten elements a mean elapsed of <b>7.79 h x 4 GPUs = 31.2 GPU-h</b> — about <b>9 %</b> above the in-process figure. The gap is model load, the stagger, and the node waiting on the slowest of its four shards. Budget with the billed number.</p>
+<p>Text stage: <b>~17 min per voice per node</b> = 1.13 node-h, of which ~10.5 min is stagger.</p>
+<hr>
+<h2>6. Two defects this run found in the corpus that had already shipped</h2>
+<p>Both were found by comparing the new build against the previous one <b>at the same stage with the same measurement</b>, which is the only comparison worth making. Both were silent.</p>
+<h3>6.1 Title-Case burst tags — the model spells them out</h3>
+<p>The manual's <a href="prompt_notation.md">prompt notation</a> rule is <em>never capitalise a tag</em>: <code>(SCREAM)</code> is read out letter by letter instead of performed. The text generator was emitting <b>Title Case</b> — <code>(Snort)</code>, <code>(Hiccup)</code>, <code>(Deep Breathing)</code> — and the generation stage was run with <code>tag_case=keep</code>, which faithfully kept them.</p>
+<p>Measured: <b>5,157 to 5,220 Title-Case tags per voice</b>, across every voice in the shipped build. Every one is a burst the model spelled out instead of performing. Combined with the WER trap on the same page — the reference stripper only removes <code>\(...\)</code>, so a mis-formed tag stays in the reference and the take is charged word-error for not pronouncing "snort" — the ranker was actively <b>selecting against</b> the takes the tags were added to help.</p>
+<p>The fix is one line at the text stage (emit lowercase at source), and it is invisible unless you count tag case explicitly. <b>Count it.</b></p>
+<h3>6.2 Burst density falling ~30 % short of the configured value</h3>
+<p><code>BURST_TEXT_FRACTION = 0.50</code> — every second sentence carries a burst. The realised density was <b>33.3 %</b>. The quota is set by <code>assign_bursts</code>, but <code>place_bursts</code> silently drops a burst whenever it cannot find an interior position <b>in both languages</b> (the position rule is: never open or close a line on a burst). Short lines have no interior position, so they lose their burst — and nothing logs a failure, because a dropped burst is a normal outcome of the placement rule.</p>
+<p>Enforcing the 10-word minimum on generated lines lifted the realised density to <b>44.1 %</b>, measured identically. Still short of 0.50, which is the honest state of it.</p>
+<p><b>The general lesson:</b> a knob whose realised value is produced by a <em>lossy</em> downstream step is not a setting, it is a request. Measure the realised value, not the configured one, and put the measurement where someone will see it.</p>
+<hr>
+<h2>7. Provenance when the code is not in git</h2>
+<p>The corpus should record, per voice: the reference clip, the seed, the recipe version and the generator's commit. If the code tree is not version-controlled, do not skip the field — record a <b>SHA-256 of every source that can change a candidate</b> plus a combined fingerprint. That is strictly more precise than a commit id, because it also pins the spec module and the scorer.</p>
+<p>Two details worth copying:</p>
+<ul><li><b>Exclude the job scripts from the fingerprint.</b> They choose <em>which</em> voice runs with <em>which</em> flags, not what a candidate becomes. Including them makes the fingerprint move on a comment edit — which is how one run nearly ended up split across two fingerprints for a reason that never touched the data. Pin the flags by value in a frozen recipe file instead.</li><li><b>Freeze the recipe by value, not by reference.</b> Reading a live <code>recipe.json</code> at job start is right when the ablation that chooses it has not finished yet. Over a 24-hour run it is a hazard: one edit halfway through and the corpus is quietly two recipes. Snapshot it, and abort rather than guess if the snapshot is missing.</li></ul>
+<p>Seeds are <b>derived, not drawn</b> — <code>seed = (crc32(gid) % 100000) <em> 1000 + 7000 + group_index</code>, then <code>torch.manual_seed(seed + 7919</em>b)</code> per sub-batch. Record the <em>rule</em>; that is the reproducible part.</p>
+<hr>
+<h2>8. Store every candidate, and every component of its score</h2>
+<p>Not just the winner. The corpus keeps all 40,256 candidates per voice with 76 columns: every VoiceNet score, EmoNet, genuineness, blend, the VoiceCLAP embedding, the speaker embedding and its cosine to the reference, the ASR transcript, the procedural caption — and <b>every component of the score</b> separately (<code>strength_raw</code>, <code>w_blend</code>, <code>z_containment</code>, <code>contained</code>, <code>dur</code>, <code>wer</code>, <code>spk_sim</code>, <code>dur_mult</code>, <code>id_mult</code>, <code>over_len</code>, …), not only the total.</p>
+<p>That is what makes a re-ranking free. This corpus was re-ranked onto a new objective (target-weight 2.0) <b>with zero regeneration</b>, because every input to the old score was still on disk. A corpus that stores only the winner and the final score cannot do that, and re-earning the option costs the full 15,000 GPU-h.</p>
+<p>Format: WebDataset tar for audio (MP3, <b>48 kHz, 160 kbps CBR</b> — verify with a probe, not with the spec) plus parquet for metadata. No loose files: 20 M small files on a parallel filesystem is its own outage.</p>
+<blockquote><b><code>audio_key</code> is <code>&amp;lt;gid&amp;gt;.cNNN.mp3</code> and is NOT unique across runs.</b> The same key is minted by every run of the same voice. Key on <b>(run directory, audio_key)</b> everywhere audio is matched to metadata, and keep separate runs in separate directories so the distinction is physical rather than a convention. This has already shipped as a bug once: 89 regenerated groups served their <em>pre</em>-regeneration audio under a "NEW improved" badge, and one group whose metadata said 5.76 s played 0.24 s.</blockquote>
+<hr>
+<h2>9. Pre-flight, in the order that catches things cheapest</h2>
+<p>1. <b>Count the work list and check it against its source.</b> <code>set(all) - set(done)</code> should reproduce the todo list exactly. 2. <b>Resolve every input on the login node.</b> Compute nodes have no internet. Three of twelve reference shards were missing from the local cache here, covering 78 voices — which would have surfaced as 78 elements dying hours in. Open every tar and confirm every member you will need is actually in it. 3. <b>Reconstruct any undocumented input and verify the reconstruction byte-for-byte</b> against existing artefacts before trusting it. One required file was produced by an un-scripted one-liner; <code>json.dumps(a + b, ensure_ascii=False)</code> reproduced all eleven existing copies exactly, which is what made it safe to generate 500 more. 4. <b>Smoke 2–3 voices end to end</b>, chosen to cover <em>source types the previous build did not</em>. Verify parquet rows, tar members, the two as sets, the column list, and the audio bitrate with a probe. Confirm the completeness gate <b>refuses</b> the smoke run — a gate only proven to accept is not proven. 5. <b>Never <code>pip install</code> without <code>--no-deps</code></b> on a shared venv. It has silently downgraded torch here. 6. Only then submit the array.</p>
+</body></html>
