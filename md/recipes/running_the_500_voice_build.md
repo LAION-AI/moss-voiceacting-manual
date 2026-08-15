@@ -181,10 +181,12 @@ Text stage: **~17 min per voice per node** = 1.13 node-h, of which ~10.5 min is 
 
 ---
 
-## 6. Two defects this run found in the corpus that had already shipped
+## 6. Three defects this run found in the corpus that had already shipped
 
-Both were found by comparing the new build against the previous one **at the same stage with the
-same measurement**, which is the only comparison worth making. Both were silent.
+The first two were found by comparing the new build against the previous one **at the same stage
+with the same measurement**, which is the only comparison worth making. The third was found by
+reading the adapter-scaling code while building something else on top of it. All three were
+silent.
 
 ### 6.1 Title-Case burst tags — the model spells them out
 
@@ -217,6 +219,103 @@ measured identically. Still short of 0.50, which is the honest state of it.
 **The general lesson:** a knob whose realised value is produced by a *lossy* downstream step is
 not a setting, it is a request. Measure the realised value, not the configured one, and put the
 measurement where someone will see it.
+
+### 6.3 Merge weights decaying as λ^k across the run — the LRU snapshot trap
+
+**This one affects every corpus generated through the same code path, and nothing in any output
+would show it.** It is a consequence of combining two reasonable things: a per-adapter merge
+weight applied by rewriting peft's `scaling` dict, and an LRU that loads and evicts adapters as
+the run walks the condition matrix.
+
+The generator holds one frozen base with several adapters resident, and applies a dose by
+multiplying each adapter's pristine scaling:
+
+```python
+m.scaling[a] = base_scaling[nm][a] * lam          # apply the dose
+```
+
+`base_scaling` is a cached snapshot of what `scaling` was *before* any dose was applied. The bug
+is **when the snapshot is refreshed**: it is re-taken **wholesale** every time an adapter is
+loaded or evicted —
+
+```python
+if newly:                                          # an adapter was loaded or evicted
+    base_scaling = {nm: dict(m.scaling) for nm, m in pm.named_modules()
+                    if isinstance(m, LoraLayer)}   # <-- re-reads ALREADY-DOSED values
+```
+
+— and by then the resident adapters have already been multiplied by their λ. The "pristine"
+value recorded for them is a dosed value, so the next use multiplies by λ **again**. An adapter
+that stays resident across *k* such snapshots and is asked for λ each time ends up at **λ^k**
+times its intended strength:
+
+| use | requested λ | effective scaling | intended |
+|--:|--:|--:|--:|
+| 1 | 0.22 | 0.44 | 0.44 |
+| 2 | 0.22 | 0.0968 | 0.44 |
+| 3 | 0.22 | 0.0213 | 0.44 |
+| 4 | 0.22 | 0.00469 | 0.44 |
+| 5 | 0.22 | 0.00103 | 0.44 |
+
+(Reproduced on a toy peft model with the bookkeeping transcribed line for line;
+`vprof/idloop/code/scaling_drift_repro.py` in the build tree.)
+
+Three properties make it hard to notice:
+
+- **λ = 1.0 is immune** (1^k = 1). The `char_human` scaffold is always 1.0, so the adapter used
+  by the most groups never drifts, and a spot check on it comes back clean. The adapters that do
+  drift are exactly the interesting ones: emotion (0.5–1.9), VoiceNet dimensions (0.22–1.25),
+  bursts (0.5), explicitness (0.8).
+- **Eviction resets it.** A deleted-and-reloaded adapter comes back pristine, and the next
+  snapshot records that. So drift is bounded by how long an adapter stays resident, which makes
+  it *intermittent* — the same condition can be correct in one part of a run and silently
+  under-dosed in another.
+- **Nothing prints scaling.** The adapter is loaded, activated and used; the logs say so; the
+  audio is plausible. A drifted λ = 0.22 adapter is not broken audio, it is the base model.
+
+**The fix** is to record each `(module, adapter)` pristine scaling **once, at first sight**, and
+never overwrite it — the value at first sight is the pristine one, because peft sets
+`scaling = lora_alpha / r` at load time and never touches it again, and a reloaded adapter comes
+back with exactly that same value:
+
+```python
+def snapshot():
+    for nm, m in pm.named_modules():
+        if isinstance(m, LoraLayer):
+            bs = base_scaling.setdefault(nm, {})
+            for k, v in m.scaling.items():
+                bs.setdefault(k, v)                # setdefault, not assignment
+```
+
+**And then log it.** Print the effective scaling of each `(adapter, λ)` pair the first time it is
+used. It is one line per pair, it makes the invariant auditable, and a regression shows up as the
+same pair printing two different numbers.
+
+**The sibling trap in the same code, for completeness**, because anyone driving several adapters
+at once will hit it: `PeftModel.active_adapter` is a **plain attribute**, not a property. peft
+sets it once in `__init__` to the first adapter ever loaded and thereafter updates it only inside
+its own `PeftModel.set_adapter()`. Activating a *set* of adapters goes through
+`pm.base_model.set_adapter([...])`, which updates the `LoraModel` and never touches the attribute
+— so it stays pinned to the first adapter for the whole run. Harmless until the LRU evicts that
+adapter: `delete_adapter()` does try to repair `active_adapter`, but only when exactly one
+adapter is left active, and stacking emotion + burst + dimension means several are. From then on
+every `generate()` indexes `peft_config[self.active_adapter]` with a name that no longer exists
+and raises `KeyError`, permanently, at the exact group where the resident set first exceeded the
+LRU size. Set the attribute yourself after every activation:
+
+```python
+pm.base_model.set_adapter(list(keys))
+first = next(iter(keys))
+if first in pm.peft_config:
+    pm.active_adapter = first          # the attribute peft actually indexes
+```
+
+That one at least stops the run. §6.3 produces output the whole way, which is worse.
+
+**The general lesson, and it is the same one as §6.2:** if a value that controls the output is
+computed rather than read back, *read it back*. A cache of "what this was before I changed it" is
+only correct if it is written under a condition that excludes "after I changed it", and
+"something else happened" is not that condition.
 
 ---
 
