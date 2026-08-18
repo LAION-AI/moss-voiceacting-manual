@@ -130,6 +130,42 @@ gain the most (+0.248). Measure per block; do not extrapolate from the aggregate
   "conversion is nearly free on quality" claim rested on a number that had never once been
   computed. Scale (do not clip) to 0.999 before scoring, and assert the result is finite.
 
+### Convert the ASSEMBLED scene, not the parts — per-part VC does not fix fragmentation
+
+**Reported by a listener, then confirmed in the code.** A production run applied Chatterbox VC to
+each part *before* splicing, then assembled the "vc" variant out of already-converted parts
+(`actprod.py` builds `vc_pool` keyed by `part`/`k` and assembles from it). The result still sounds
+**fragmented after conversion**, and the reason is structural rather than a tuning problem:
+
+> Each part is converted **without any knowledge of its neighbours**. Chatterbox re-synthesises the
+> audio, so every part gets its own realisation of timbre and level. The converter cannot smooth a
+> seam it never sees. Splicing independently-converted parts can even *emphasise* the joins,
+> because each part is now internally consistent and mutually inconsistent.
+
+Measured over 80 parts of that run, conversion did what it is supposed to do at the part level and
+still left audible seams:
+
+| what per-part VC did | mean | median | share improved |
+|---|--:|--:|--:|
+| speaker similarity to the anchor | **+0.065** | +0.035 | **75 %** |
+| audio quality (DNSMOS) | +0.156 | +0.059 | **45 %** |
+
+So identity moves in the right direction three parts in four — the conversion is working — and the
+scene is still fragmented. Fixing identity per part is simply not the same problem as making one
+continuous performance.
+
+**Recipe.** Assemble first, convert the finished clip in **one pass** against the anchor. The
+converter then resolves timbre and level once across the whole scene.
+
+**The trade to listen for.** A single pass may also flatten prosodic changes that were *meant* to
+differ across a seam — the arc of a scene is partly carried by shifts in tempo and intensity
+between parts, and one conversion pass can blur them. Keep both variants and choose per scene;
+do not assume whole-clip conversion is strictly better.
+
+**A number that stays true either way:** DNSMOS improved in only **45 %** of parts. Voice
+conversion is a *repair for identity*, not an audio-quality upgrade, and on clips that were already
+close to the anchor it costs more than it returns.
+
 ## 4. Assembling
 
 - **Crossfade the seam.** A hard concatenation leaves a click that the quality head reliably
