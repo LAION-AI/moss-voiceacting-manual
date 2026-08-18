@@ -132,6 +132,8 @@ gain the most (+0.248). Measure per block; do not extrapolate from the aggregate
 
 ### Convert the ASSEMBLED scene, not the parts — per-part VC does not fix fragmentation
 
+🎧 **[Hear it — 72 assembled scenes, raw vs voice-converted vs Sidon-restored](https://projects.laion.ai/moss-voice-profiles/acting_concats.html)** — 9 scenes, 8 assemblies each, every one spliced from 2–4 separate takes. The fragmentation this section is about is audible in the voice-converted column.
+
 **Reported by a listener, then confirmed in the code.** A production run applied Chatterbox VC to
 each part *before* splicing, then assembled the "vc" variant out of already-converted parts
 (`actprod.py` builds `vc_pool` keyed by `part`/`k` and assembles from it). The result still sounds
